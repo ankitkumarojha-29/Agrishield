@@ -1,0 +1,56 @@
+{
+    "farm_id": "FARM_001",
+    "source": "OpenWeather",
+    "retrieved_at": "2026-08-15T14:54:25.868821+00:00",
+    "location": {
+        "latitude": 23.07471394500561,
+        "longitude": 76.86331770482602
+    },
+    "data": {
+        "coord": {
+            "lon": 76.8633,
+            "lat": 23.0747
+        },
+        "weather": [
+            {
+                "id": 500,
+                "main": "Rain",
+                "description": "light rain",
+                "icon": "10n"
+            }
+        ],
+        "base": "stations",
+        "main": {
+            "temp": 23.8,
+            "feels_like": 24.66,
+            "temp_min": 23.8,
+            "temp_max": 23.8,
+            "pressure": 1006,
+            "humidity": 93,
+            "sea_level": 1006,
+            "grnd_level": 948
+        },
+        "visibility": 10000,
+        "wind": {
+            "speed": 4.83,
+            "deg": 288,
+            "gust": 11.78
+        },
+        "rain": {
+            "1h": 0.1
+        },
+        "clouds": {
+            "all": 100
+        },
+        "dt": 1786805665,
+        "sys": {
+            "country": "IN",
+            "sunrise": 1786753730,
+            "sunset": 1786800338
+        },
+        "timezone": 19800,
+        "id": 1278294,
+        "name": "Ashta",
+        "cod": 200
+    }
+}

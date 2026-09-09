@@ -1,0 +1,17 @@
+{
+    "farm_id": "FARM_001",
+    "analysis_period": {
+        "from": "2026-07-01T00:00:00Z",
+        "to": "2026-08-15T23:59:59Z"
+    },
+    "source": "Copernicus Sentinel-2 L2A",
+    "bands": {
+        "1": "B02 - Blue",
+        "2": "B03 - Green",
+        "3": "B04 - Red",
+        "4": "B08 - NIR",
+        "5": "B11 - SWIR",
+        "6": "SCL - Scene Classification"
+    },
+    "output": "e:\\VS code\\AgriShield\\ai\\data\\processed\\satellite\\output\\sentinel_raw.tif"
+}

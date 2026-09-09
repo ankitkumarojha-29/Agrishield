@@ -1,0 +1,86 @@
+# Python bytecode & cache
+__pycache__/
+**/__pycache__/
+*.py[cod]
+**/*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Build & distribution
+build/
+**/build/
+develop-eggs/
+dist/
+**/dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+!app/lib/**
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+.venv/
+**/venv/
+**/.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables & Private Secrets
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+**/*.env
+!.env.example
+!**/.env.example
+LOCAL_SECRETS*
+*SECRETS*
+
+# Node / JS
+node_modules/
+**/node_modules/
+npm-debug.log
+yarn-error.log
+
+# Flutter / Dart
+.dart_tool/
+**/.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+
+# Blockchain
+artifacts/
+**/artifacts/
+cache/
+**/cache/
+typechain-types/
+
+# Uploads & temporary test files
+uploads/
+**/uploads/
+*.pkl
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/

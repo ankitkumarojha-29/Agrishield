@@ -1,0 +1,45 @@
+{
+    "platform": "AgriShield AI Evaluation Suite",
+    "timestamp": "2026-09-06T11:56:00Z",
+    "models": {
+        "yield_prediction": {
+            "task": "Regression (Crop Yield Prediction in t/ha and kg/ha)",
+            "algorithm": "RandomForestRegressor (300 estimators)",
+            "metrics": {
+                "model": "yield-v1.0.0",
+                "MAE": 0.1911113166666667,
+                "RMSE": 0.23895057963241412,
+                "R2": 0.9728289779221615
+            }
+        },
+        "risk_score": {
+            "task": "Regression (Farm Multi-Factor Risk Score 0-100)",
+            "algorithm": "RandomForestRegressor (300 estimators)",
+            "metrics": {
+                "model": "risk-v1.0.0",
+                "MAE": 4.965694274999999,
+                "RMSE": 6.441111468163467,
+                "R2": 0.8705082393446331
+            }
+        },
+        "damage_assessment": {
+            "task": "Binary Computer Vision Classification (damaged vs non_damaged)",
+            "algorithm": "EfficientNet-B0 Transfer Learning",
+            "accuracy": 83.7,
+            "f1_macro": 0.8369,
+            "precision_macro": 0.8378,
+            "recall_macro": 0.837,
+            "test_samples": 2000
+        },
+        "crop_health": {
+            "task": "Multi-class CV Classification (15 crop disease & health classes)",
+            "algorithm": "EfficientNet-B0 Transfer Learning",
+            "accuracy": 87.82,
+            "f1_macro": 0.8604,
+            "f1_weighted": 0.8747,
+            "precision_macro": 0.8865,
+            "recall_macro": 0.845,
+            "validation_samples": 3095
+        }
+    }
+}

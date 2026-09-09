@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: agrishield_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - agrishield-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  agrishield-db-data:

@@ -1,0 +1,9 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+# Keep generated analysis out of git if desired; remove these two lines if you want to version outputs.
+data/processed/satellite/output/*.tif
+data/processed/satellite/output/*.png
+data/crop_health/
+data/damage_assessment/

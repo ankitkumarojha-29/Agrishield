@@ -1,0 +1,15 @@
+{
+  "name": "agrishield-blockchain",
+  "version": "1.0.0",
+  "description": "Smart contracts for AgriShield verification",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:amoy": "hardhat run scripts/deploy.js --network amoy"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.20.0"
+  }
+}

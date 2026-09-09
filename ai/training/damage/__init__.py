@@ -1,0 +1,1 @@
+"""Damage assessment training module."""

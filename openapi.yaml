@@ -1,0 +1,440 @@
+openapi: 3.0.3
+info:
+  title: AgriShield Integration API
+  version: "1.0.0"
+  description: >
+    Single source of truth for AgriShield (Smart VIT Hackathon 2026, PS SVH26007).
+    Website, Flutter app, and AI service all build against this contract.
+    Base URL: https://<integration-api>/api/v1
+servers:
+  - url: https://agrishield-backend.onrender.com/api/v1
+    description: Render deployment (backend)
+  - url: http://localhost:8000/api/v1
+    description: Local dev
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: {}
+        meta:
+          type: object
+          properties:
+            request_id: { type: string, format: uuid }
+            timestamp: { type: string, format: date-time }
+        error:
+          nullable: true
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object }
+
+    ErrorCode:
+      type: string
+      enum:
+        - AUTH_REQUIRED
+        - FORBIDDEN
+        - VALIDATION_ERROR
+        - FARM_NOT_FOUND
+        - FARM_BOUNDARY_INVALID
+        - AI_UNAVAILABLE
+        - AI_LOW_CONFIDENCE
+        - FILE_INVALID
+        - CLAIM_NOT_FOUND
+        - POLICY_NOT_FOUND
+        - RATE_LIMITED
+        - BLOCKCHAIN_PENDING
+        - BLOCKCHAIN_FAILED
+
+    GeoPolygon:
+      type: object
+      required: [type, coordinates]
+      properties:
+        type: { type: string, enum: [Polygon] }
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items: { type: number }
+              minItems: 2
+              maxItems: 2
+      description: >
+        WGS84 lon/lat rings. Ring must be closed (first point == last point),
+        have >= 4 positions (3 unique vertices + closing point), and must not
+        self-intersect. See PolygonValidationResult for pre-submit checks.
+
+    PolygonValidationResult:
+      type: object
+      properties:
+        valid: { type: boolean }
+        reason:
+          type: string
+          nullable: true
+          enum: [null, NOT_CLOSED, TOO_FEW_VERTICES, SELF_INTERSECTING, AREA_TOO_SMALL, AREA_TOO_LARGE]
+        area_m2: { type: number }
+
+    Farm:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        name: { type: string }
+        crop: { type: string, nullable: true }
+        sowing_date: { type: string, format: date, nullable: true }
+        area_m2: { type: number }
+        boundary: { $ref: '#/components/schemas/GeoPolygon' }
+        centroid:
+          type: object
+          properties:
+            lat: { type: number }
+            lon: { type: number }
+        status:
+          type: string
+          enum: [PENDING, VERIFIED, UNAVAILABLE]
+
+    AIPredictionBase:
+      type: object
+      properties:
+        model_version: { type: string }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        low_confidence: { type: boolean }
+        inference_ms: { type: integer }
+
+    Claim:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        policy_id: { type: string, format: uuid }
+        incident_date: { type: string, format: date }
+        event_type: { type: string, enum: [hailstorm, drought, flood, pest, unseasonal_rain, other] }
+        description: { type: string }
+        evidence_ids: { type: array, items: { type: string, format: uuid } }
+        status: { type: string, enum: [SUBMITTED, AI_ASSESSED, UNDER_REVIEW, APPROVED, REJECTED] }
+        damage_pct: { type: number, nullable: true }
+        ai_confidence: { type: number, nullable: true }
+        canonical_hash: { type: string, nullable: true }
+        tx_hash: { type: string, nullable: true }
+
+  responses:
+    Unauthorized:
+      description: AUTH_REQUIRED
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Service health check
+      security: []
+      responses:
+        '200': { description: OK }
+
+  /api/v1/meta:
+    get:
+      summary: API version, enabled features, model versions
+      responses:
+        '200': { description: OK }
+
+  /auth/register:
+    post:
+      summary: Register a new user
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, language]
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                email: { type: string }
+                language: { type: string, example: hi }
+      responses:
+        '200': { description: user + access_token }
+
+  /auth/login:
+    post:
+      summary: Login with identifier + password/OTP
+      security: []
+      responses:
+        '200': { description: access_token + refresh_token }
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      security: []
+      responses:
+        '200': { description: new access_token }
+
+  /auth/me:
+    get:
+      summary: Current user + roles + preferences
+      responses:
+        '200': { description: OK }
+
+  /farms:
+    get:
+      summary: List farms (paginated)
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Farm' }
+    post:
+      summary: Create farm
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, crop, sowing_date, boundary]
+              properties:
+                name: { type: string }
+                crop: { type: string, nullable: true, description: "null for unsown farms" }
+                sowing_date: { type: string, format: date, nullable: true }
+                boundary: { $ref: '#/components/schemas/GeoPolygon' }
+      responses:
+        '201': { description: Created farm }
+        '422': { description: FARM_BOUNDARY_INVALID }
+
+  /farms/{farm_id}:
+    get:
+      summary: Farm detail
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Edit farm fields
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK }
+
+  /farms/{farm_id}/validate-boundary:
+    post:
+      summary: >
+        Pre-submit boundary check. MUST be called by the client (or the backend
+        internally on POST /farms) before a polygon is persisted — see the
+        Polygon Validation section of the integration spec.
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                boundary: { $ref: '#/components/schemas/GeoPolygon' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolygonValidationResult' }
+
+  /farms/{farm_id}/soil/analyze:
+    post:
+      summary: Upload soil report (PDF/image) -> OCR extraction with Soil Health Card fallback
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '200': { description: soil values + source + confidence }
+
+  /farms/{farm_id}/crop-health:
+    post:
+      summary: Crop health / disease photo scan
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image: { type: string, format: binary }
+                crop: { type: string }
+                growth_stage: { type: string }
+      responses:
+        '200': { description: health/disease/damage + model_version + confidence }
+
+  /farms/{farm_id}/yield-predict:
+    post:
+      summary: Yield estimate for a sown field
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: yield_value + unit + confidence }
+
+  /farms/{farm_id}/risk-score:
+    post:
+      summary: AI risk score used as insurance pricing input
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: risk_score + risk_band + factors }
+
+  /farms/{farm_id}/advisory:
+    post:
+      summary: Personalized crop/fertilizer advisory (also used for unsown-farm crop-type recommendation)
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: recommendations[] + warnings[] }
+
+  /farms/{farm_id}/weather/current:
+    get:
+      summary: Current weather at farm centroid
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /farms/{farm_id}/weather/forecast:
+    get:
+      summary: Forecast + rainfall risk
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /farms/{farm_id}/satellite/latest:
+    get:
+      summary: Latest imagery metadata/indices
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /farms/{farm_id}/satellite/history:
+    get:
+      summary: Historical observation list
+      parameters: [{ in: path, name: farm_id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /market/prices:
+    get:
+      summary: Mandi price data by crop/location/date
+      parameters:
+        - in: query
+          name: crop
+          schema: { type: string }
+        - in: query
+          name: state
+          schema: { type: string }
+        - in: query
+          name: date
+          schema: { type: string, format: date }
+      responses: { '200': { description: OK } }
+
+  /insurance/quote:
+    post:
+      summary: Calculate demo premium from crop, area and risk
+      responses: { '200': { description: OK } }
+
+  /insurance/policies:
+    get:
+      summary: List current user's policies
+      responses: { '200': { description: OK } }
+    post:
+      summary: Create demo policy
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      responses: { '201': { description: Created } }
+
+  /insurance/policies/{id}:
+    get:
+      summary: Policy details
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /insurance/policies/{id}/verification:
+    get:
+      summary: Hash/blockchain status
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /claims:
+    get:
+      summary: List claims by role/user
+      responses: { '200': { description: OK } }
+    post:
+      summary: Create claim
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Claim' }
+      responses: { '201': { description: Created } }
+
+  /claims/{id}:
+    get:
+      summary: Claim details + status timeline
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /claims/{id}/assess:
+    post:
+      summary: Trigger AI assessment
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /claims/{id}/review:
+    post:
+      summary: Human/admin review action
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /claims/{id}/submit:
+    post:
+      summary: Finalize claim submission
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /claims/{id}/verification:
+    get:
+      summary: Hash/blockchain verification
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+
+  /devices/register:
+    post:
+      summary: Register FCM/device token
+      responses: { '200': { description: OK } }
+
+  /notifications:
+    get:
+      summary: List notifications
+      responses: { '200': { description: OK } }
+
+  /notifications/{id}/read:
+    post:
+      summary: Mark notification read
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }

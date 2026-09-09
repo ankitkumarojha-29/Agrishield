@@ -1,0 +1,10 @@
+{
+  "classes": [
+    "damaged",
+    "non_damaged"
+  ],
+  "damage_pct_map": {
+    "non_damaged": 0.0,
+    "damaged": 0.6
+  }
+}

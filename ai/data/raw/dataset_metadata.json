@@ -1,0 +1,72 @@
+{
+    "generator": "AgriShield AI synthetic agricultural data generator",
+    "synthetic": true,
+    "warning": "These datasets are synthetic and are intended for development/testing only. They must not be presented as real-world model validation data.",
+    "random_seed": 42,
+    "datasets": {
+        "yield": {
+            "file": "E:\\VS code\\AgriShield\\ai\\data\\raw\\yield\\yield_data.csv",
+            "rows": 20000,
+            "target": "yield",
+            "target_unit": "tonnes_per_hectare"
+        },
+        "risk": {
+            "file": "E:\\VS code\\AgriShield\\ai\\data\\raw\\risk\\risk_data.csv",
+            "rows": 20000,
+            "target": "risk_score",
+            "target_range": "0-100"
+        },
+        "farm_features": {
+            "file": "E:\\VS code\\AgriShield\\ai\\data\\raw\\farm_features\\farm_features.csv",
+            "rows": 20000
+        }
+    },
+    "feature_groups": {
+        "weather": [
+            "rainfall",
+            "rainfall_7d",
+            "rainfall_30d",
+            "temp_mean",
+            "temp_max",
+            "temp_min",
+            "humidity",
+            "wind_speed"
+        ],
+        "soil": [
+            "soil_ph",
+            "nitrogen",
+            "phosphorus",
+            "potassium",
+            "organic_carbon"
+        ],
+        "satellite": [
+            "ndvi_mean",
+            "ndvi_min",
+            "ndvi_max",
+            "ndvi_std",
+            "ndwi_mean",
+            "ndwi_min",
+            "ndwi_max",
+            "ndmi_mean",
+            "ndmi_min",
+            "ndmi_max"
+        ],
+        "crop": [
+            "crop",
+            "growth_stage",
+            "sowing_delay_days"
+        ],
+        "risk": [
+            "disease_probability",
+            "historical_loss",
+            "heat_stress_days",
+            "excessive_rainfall_index"
+        ]
+    },
+    "not_generated": [
+        "crop disease images",
+        "crop damage images",
+        "YOLO labels",
+        "soil OCR document images"
+    ]
+}

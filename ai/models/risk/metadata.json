@@ -1,0 +1,23 @@
+{
+    "model": "risk_score",
+    "version": "risk-v1.0.0",
+    "algorithm": "RandomForestRegressor",
+    "target": "risk_score",
+    "features": [
+        "crop",
+        "area_ha",
+        "rainfall",
+        "temp_mean",
+        "humidity",
+        "soil_ph",
+        "nitrogen",
+        "phosphorus",
+        "potassium",
+        "ndvi_mean",
+        "ndwi_mean",
+        "ndmi_mean",
+        "yield_prediction",
+        "disease_probability",
+        "historical_loss"
+    ]
+}

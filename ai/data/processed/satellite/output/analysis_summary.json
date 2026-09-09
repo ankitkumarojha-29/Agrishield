@@ -1,0 +1,81 @@
+{
+    "farm_id": "FARM_001",
+    "analysis_period": {
+        "from": "2026-07-01T00:00:00Z",
+        "to": "2026-08-15T23:59:59Z"
+    },
+    "point_count": 4,
+    "area": {
+        "square_meters": 11557.751943616197,
+        "hectares": 1.1557751943616197,
+        "acres": 2.855982702930152
+    },
+    "perimeter": {
+        "meters": 437.47363453438425,
+        "kilometers": 0.43747363453438426
+    },
+    "centroid": {
+        "latitude": 23.07471394500561,
+        "longitude": 76.86331770482602
+    },
+    "bounding_box": {
+        "min_longitude": 76.86255555555555,
+        "min_latitude": 23.07425,
+        "max_longitude": 76.86391666666665,
+        "max_latitude": 23.07522222222222
+    },
+    "indices": {
+        "NDVI": {
+            "mean": 0.27702054381370544,
+            "median": 0.25842076539993286,
+            "min": 0.18895965814590454,
+            "max": 0.41539838910102844,
+            "std": 0.05807296559214592,
+            "valid_pixels": 378413
+        },
+        "NDWI": {
+            "mean": -0.2700890600681305,
+            "median": -0.2594364583492279,
+            "min": -0.35183224081993103,
+            "max": -0.20168302953243256,
+            "std": 0.037400588393211365,
+            "valid_pixels": 378413
+        },
+        "NDMI": {
+            "mean": 0.03692767024040222,
+            "median": 0.027394257485866547,
+            "min": -0.04575810208916664,
+            "max": 0.1270718276500702,
+            "std": 0.03884173184633255,
+            "valid_pixels": 378413
+        }
+    },
+    "cloud_mask": {
+        "total_pixels": 490000,
+        "valid_pixels": 378413,
+        "removed_pixels": 111587,
+        "valid_percentage": 77.22714285714285
+    },
+    "scl_classes": {
+        "0": {
+            "name": "No Data",
+            "pixels": 111587,
+            "percentage": 22.77285714285714
+        },
+        "5": {
+            "name": "Bare Soil",
+            "pixels": 378413,
+            "percentage": 77.22714285714285
+        }
+    },
+    "files": {
+        "raw": "e:\\VS code\\AgriShield\\ai\\data\\processed\\satellite\\output\\sentinel_raw.tif",
+        "true_color": "e:\\VS code\\AgriShield\\ai\\data\\processed\\satellite\\output\\farm_true_color.png",
+        "ndvi": "e:\\VS code\\AgriShield\\ai\\data\\processed\\satellite\\output\\ndvi.tif",
+        "ndwi": "e:\\VS code\\AgriShield\\ai\\data\\processed\\satellite\\output\\ndwi.tif",
+        "ndmi": "e:\\VS code\\AgriShield\\ai\\data\\processed\\satellite\\output\\ndmi.tif",
+        "ndvi_overlay": "e:\\VS code\\AgriShield\\ai\\data\\processed\\satellite\\output\\ndvi_farm_overlay.png",
+        "ndwi_overlay": "e:\\VS code\\AgriShield\\ai\\data\\processed\\satellite\\output\\ndwi_farm_overlay.png",
+        "ndmi_overlay": "e:\\VS code\\AgriShield\\ai\\data\\processed\\satellite\\output\\ndmi_farm_overlay.png"
+    }
+}

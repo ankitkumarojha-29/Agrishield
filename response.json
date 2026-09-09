@@ -1,0 +1,226 @@
+{
+    "health": {
+        "request": {},
+        "response": {
+            "status": "healthy",
+            "service": "agrishield-ai",
+            "version": "1.0.0"
+        }
+    },
+    "crop_health": {
+        "request": {
+            "form_data": {
+                "crop": "wheat",
+                "growth_stage": "vegetative"
+            },
+            "file": "dummy.jpg"
+        },
+        "response": {
+            "label": "healthy",
+            "severity": "none",
+            "confidence": 0.91,
+            "boxes": [],
+            "model_version": "mock-crop-v1",
+            "low_confidence": false,
+            "inference_ms": 45
+        }
+    },
+    "damage_assessment": {
+        "request": {
+            "form_data": {
+                "crop": "wheat",
+                "event_type": "flood"
+            },
+            "files": [
+                "dummy.jpg"
+            ]
+        },
+        "response": {
+            "damage_pct": 0.28,
+            "severity": "moderate",
+            "detections": [
+                {
+                    "label": "flood",
+                    "area_pct": 0.28,
+                    "confidence": 0.87
+                }
+            ],
+            "confidence": 0.87,
+            "model_version": "mock-damage-v1",
+            "low_confidence": false,
+            "inference_ms": 320
+        }
+    },
+    "yield_prediction": {
+        "request": {
+            "crop": "wheat",
+            "area_ha": 1.5,
+            "boundary_coordinates": [
+                [
+                    76.86255555555555,
+                    23.075
+                ],
+                [
+                    76.86388888888888,
+                    23.07522222222222
+                ],
+                [
+                    76.86391666666665,
+                    23.074305555555554
+                ],
+                [
+                    76.8628611111111,
+                    23.07425
+                ],
+                [
+                    76.86255555555555,
+                    23.075
+                ]
+            ],
+            "centroid_lat": 23.07471395,
+            "centroid_lon": 76.8633177,
+            "rainfall": 80,
+            "temp_mean": 25
+        },
+        "response": {
+            "yield_value": 4.5,
+            "unit": "kg/ha",
+            "confidence": 0.926,
+            "model_version": "yield-v1.0.0",
+            "low_confidence": false,
+            "inference_ms": 156,
+            "data_sources": {
+                "satellite": "live",
+                "weather": "live",
+                "soil": "fallback"
+            },
+            "centroid": {
+                "lat": 23.07471395,
+                "lon": 76.8633177
+            },
+            "warnings": [
+                "Geometry computation failed: cannot import name 'process_geometry' from 'collection.geometry.farm_geometry' (e:\\VS code\\AgriShield\\ai\\collection\\geometry\\farm_geometry.py). Using provided centroid.",
+                "Soil API failed (Expecting value: line 1 column 1 (char 0)). Using backend fallback values."
+            ]
+        }
+    },
+    "risk_score": {
+        "request": {
+            "crop": "wheat",
+            "area_ha": 1.5,
+            "boundary_coordinates": [
+                [
+                    76.86255555555555,
+                    23.075
+                ],
+                [
+                    76.86388888888888,
+                    23.07522222222222
+                ],
+                [
+                    76.86391666666665,
+                    23.074305555555554
+                ],
+                [
+                    76.8628611111111,
+                    23.07425
+                ],
+                [
+                    76.86255555555555,
+                    23.075
+                ]
+            ],
+            "centroid_lat": 23.07471395,
+            "centroid_lon": 76.8633177,
+            "weather": {
+                "rainfall": 80,
+                "temp_mean": 28,
+                "humidity": 65
+            },
+            "soil": {
+                "pH": 6.5,
+                "N": 50,
+                "P": 25,
+                "K": 200
+            },
+            "satellite": {
+                "ndvi_mean": 0.5,
+                "ndwi_mean": 0.0,
+                "ndmi_mean": 0.0
+            },
+            "history": {
+                "yield_prediction": 3000
+            }
+        },
+        "response": {
+            "risk_score": 1.0,
+            "risk_band": "critical",
+            "factors": [
+                {
+                    "name": "Low vegetation index",
+                    "contribution": 0.2
+                }
+            ],
+            "confidence": 0.746,
+            "model_version": "risk-v1.0.0",
+            "low_confidence": false,
+            "inference_ms": 92,
+            "data_sources": {
+                "satellite": "live",
+                "weather": "live",
+                "soil": "fallback"
+            },
+            "centroid": {
+                "lat": 23.07471395,
+                "lon": 76.8633177
+            },
+            "warnings": [
+                "Geometry computation failed: cannot import name 'process_geometry' from 'collection.geometry.farm_geometry' (e:\\VS code\\AgriShield\\ai\\collection\\geometry\\farm_geometry.py). Using provided centroid.",
+                "Soil API failed (Expecting value: line 1 column 1 (char 0)). Using backend fallback values."
+            ]
+        }
+    },
+    "soil_ocr": {
+        "request": {
+            "file": "dummy.jpg"
+        },
+        "response": {
+            "N": 45.0,
+            "P": 22.0,
+            "K": 180.0,
+            "pH": 6.5,
+            "confidence": 0.4,
+            "extracted_text": "OCR failed: No module named 'easyocr'",
+            "model_version": "fallback-v1",
+            "low_confidence": true,
+            "inference_ms": 0
+        }
+    },
+    "advisory": {
+        "request": {
+            "crop": "wheat",
+            "soil": {
+                "pH": 6.5,
+                "N": 50,
+                "P": 25,
+                "K": 200
+            },
+            "weather": {
+                "rainfall": 80,
+                "temp_mean": 28
+            }
+        },
+        "response": {
+            "recommendations": [
+                "Apply nitrogen at tillering stage",
+                "Monitor for yellow rust",
+                "Irrigate at crown root initiation"
+            ],
+            "warnings": [],
+            "model_version": "advisory-rules-v1.0",
+            "confidence": 0.85,
+            "low_confidence": false,
+            "inference_ms": 2
+        }
+    }
+}
