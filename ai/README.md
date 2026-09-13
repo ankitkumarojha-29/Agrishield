@@ -1,193 +1,179 @@
-# AgriShield AI Service
+# AgriShield AI Inference Microservice
 
-AI-powered inference service for PMFBY crop insurance — crop health detection, damage assessment, yield prediction, risk scoring, soil OCR, and agricultural advisory.
+AI-powered compute and inference engine for the AgriShield platform — crop foliage disease detection, post-disaster damage assessment, satellite-driven yield prediction, multi-factor risk scoring, soil health card OCR, and agronomic advisory.
 
-> **Platform**: AgriShield Enterprise PMFBY AI Architecture  
-> **Role**: AI Developer — owns `ai/` only. Never calls `backend/` directly.
+> **Platform**: AgriShield Enterprise Agricultural Intelligence Architecture  
+> **Role**: AI Microservice Developer — owns `ai/` independently. Operates on port `8001`. Never connects to PostgreSQL directly and never handles user auth.
 
 ---
 
-## Features
+## Features & Endpoints
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/health` | GET | Service status + model versions |
-| `/v1/crop-health` | POST | Disease / health label from image |
-| `/v1/damage-assessment` | POST | Damage % from weather event images |
-| `/v1/yield-prediction` | POST | RandomForest yield prediction with live satellite + weather + soil |
-| `/v1/risk-score` | POST | Insurance risk score + factor breakdown |
-| `/v1/soil-ocr` | POST | Extract N/P/K/pH from PDF or image |
-| `/v1/advisory` | POST | Actionable crop recommendations |
+| `/health` | GET | Service status + loaded model versions |
+| `/v1/crop-health` | POST | Foliage disease / pest detection & bounding boxes from image |
+| `/v1/damage-assessment` | POST | Disaster damage % and severity from pre/post event imagery |
+| `/v1/yield-prediction` | POST | Multi-modal RandomForest yield prediction (kg/ha) with satellite + weather + soil |
+| `/v1/risk-score` | POST | Agro-climatic risk score (0-100) + weighted factor breakdown |
+| `/v1/soil-ocr` | POST | OCR extraction of N, P, K, and pH from Soil Health Card PDF/image |
+| `/v1/advisory` | POST | Agronomic recommendations, warnings & crop diversification guidance |
 
 ---
 
-## Architecture
+## Directory Structure
 
 ```
 ai/
 ├── app/                        # FastAPI application
-│   ├── main.py                 # App entry point + CORS
-│   ├── config.py               # All env-var settings
-│   ├── routes/                 # One router per endpoint
+│   ├── main.py                 # App entry point (port 8001) + CORS
+│   ├── config.py               # Environment configuration
+│   ├── routes/                 # Endpoint routers
 │   │   ├── health.py
 │   │   ├── crop_health.py
 │   │   ├── damage_assessment.py
-│   │   ├── yield_prediction.py # Real data pipeline + model
+│   │   ├── yield_prediction.py # Real data pipeline + ML model
 │   │   ├── risk_score.py
 │   │   ├── soil_ocr.py
 │   │   └── advisory.py
-│   ├── schemas/                # Pydantic request/response models
+│   ├── schemas/                # Pydantic request & response schemas
 │   └── services/
-│       └── data_pipeline.py    # Orchestrates satellite/weather/soil collection
+│       └── data_pipeline.py    # Satellite, weather & soil orchestrator
 │
-├── collection/                 # External data clients
+├── collection/                 # External data collectors
 │   ├── satellite/
-│   │   ├── sentinel2.py        # Copernicus/Sentinel-2 STAC + download
-│   │   └── indices.py          # NDVI / NDWI / NDMI computation
+│   │   ├── sentinel2.py        # Copernicus/Sentinel-2 STAC + imagery
+│   │   └── indices.py          # NDVI / NDWI / NDMI index computation
 │   ├── weather/
-│   │   └── weather_api.py      # OpenWeatherMap current + history
+│   │   └── weather_api.py      # OpenWeatherMap current & forecast
 │   ├── soil/
-│   │   └── soil_api.py         # SoilHive API — N/P/K/pH/OC
-│   ├── geometry/               # Centroid + area utilities
-│   └── external/               # Shared HTTP helpers
+│   │   └── soil_api.py         # SoilHive API (N, P, K, pH, Organic Carbon)
+│   ├── geometry/               # Centroid, area & coordinate utilities
+│   └── external/               # Shared HTTP clients
 │
-├── feature_engineering/        # Raw API responses → model features
-├── inference/                  # Model prediction wrappers
-│   ├── yield_prediction.py     # Loads RandomForest .pkl, returns confidence
-│   ├── risk_scoring.py
-│   ├── crop_health.py
-│   ├── damage_assessment.py
-│   ├── soil_ocr.py
-│   └── advisory.py
-├── models/                     # Trained model files + metadata.json
-│   ├── yield/
-│   │   ├── yield_model.pkl
-│   │   └── metadata.json
-│   └── risk/
-│       ├── risk_model.pkl
-│       └── metadata.json
-├── training/                   # Training pipelines
-│   ├── generate_dataset.py     # Synthetic dataset generator
+├── feature_engineering/        # Raw environmental telemetry → model features
+├── inference/                  # Production inference wrappers
+│   ├── yield_prediction.py     # RandomForest (.pkl) regression
+│   ├── risk_scoring.py         # Multi-factor risk engine
+│   ├── crop_health.py          # PyTorch / YOLOv8 leaf disease classifier
+│   ├── damage_assessment.py    # Visual damage quantifier
+│   ├── soil_ocr.py             # EasyOCR / Tesseract digit extractor
+│   └── advisory.py             # Agronomic rule engine
+├── models/                     # Trained models & metadata
+│   ├── yield/ (yield_model.pkl, metadata.json)
+│   └── risk/ (risk_model.pkl, metadata.json)
+├── training/                   # Model training pipelines
+│   ├── generate_dataset.py
 │   ├── yield/train.py
 │   ├── risk/train.py
 │   ├── crop_health/train.py
 │   └── damage/train.py
-├── recommendation/             # Advisory rule engine
-├── evaluation/                 # Model metrics + reports
-├── utils/                      # Confidence, logging, model loader, validation
-├── tests/                      # Test suite
-├── data/                       # uploads/ + raw data
+├── recommendation/             # Advisory rules & agronomy logic
+├── tests/                      # Automated test suite
 ├── Dockerfile
 ├── requirements.txt
-└── .env                        # Never commit — see Environment Variables below
+└── .env.example
 ```
 
 ---
 
 ## Quick Start
 
-### 1 — Clone + create virtual environment
+### 1 — Create Virtual Environment
 
 ```bash
 # Windows PowerShell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 
 # Linux / macOS
-python -m venv venv
-source venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 ```
 
-### 2 — Install dependencies
+### 2 — Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3 — Configure environment
+### 3 — Configure Environment
 
-Copy the example and fill in your API keys:
+Copy the example environment file:
 
 ```bash
 cp .env.example .env
-# then edit .env
 ```
 
-Minimum for MOCK_MODE (no real API calls needed):
-
+To run with live models:
 ```env
+PORT=8001
+MOCK_MODE=false
+OPENWEATHER_API_KEY=your_key
+COPERNICUS_CLIENT_ID=your_id
+COPERNICUS_CLIENT_SECRET=your_secret
+```
+
+Or for instant zero-dependency testing without API keys:
+```env
+PORT=8001
 MOCK_MODE=true
-DEBUG=true
 ```
 
-### 4 — Train models (skip if `.pkl` files already exist in `models/`)
+### 4 — Start Service
 
 ```bash
-# Generate synthetic training data + train all models
-python training/generate_dataset.py
-python training/yield/train.py
-python training/risk/train.py
-```
-
-### 5 — Run the service
-
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 | URL | Purpose |
 |---|---|
-| `http://localhost:8000` | API root |
-| `http://localhost:8000/docs` | Swagger UI |
-| `http://localhost:8000/redoc` | ReDoc |
+| `http://localhost:8001` | Service root |
+| `http://localhost:8001/health` | Model health & status |
+| `http://localhost:8001/docs` | Interactive Swagger API docs |
 
 ---
 
-## Environment Variables
+## Cloud Deployment & ngrok Tunnel
 
-| Variable | Default | Description |
-|---|---|---|
-| `MOCK_MODE` | `false` | Return hardcoded demo data — no real models or APIs called |
-| `DEBUG` | `false` | Enable FastAPI debug mode |
-| `MIN_CONFIDENCE` | `0.7` | Threshold below which `low_confidence: true` is set |
-| `MODEL_DIR` | `./models` | Path to trained `.pkl` / `.pt` model files |
-| `UPLOAD_DIR` | `./data/uploads` | Temporary storage for uploaded images/PDFs |
-| `LOG_LEVEL` | `INFO` | Python logging level |
-| `ANALYSIS_DAYS_BACK` | `45` | Sentinel-2 look-back window in days |
-| `OPENWEATHER_API_KEY` | — | OpenWeatherMap API key |
-| `COPERNICUS_CLIENT_ID` | — | Copernicus OAuth client ID |
-| `COPERNICUS_CLIENT_SECRET` | — | Copernicus OAuth client secret |
-| `SOILHIVE_CLIENT_ID` | — | SoilHive OAuth client ID |
-| `SOILHIVE_CLIENT_SECRET` | — | SoilHive OAuth client secret |
+When the AgriShield backend is deployed on Render in the cloud, the AI microservice running locally on your laptop can be securely connected via the included PowerShell tunnel script:
 
-> **Security**: Never commit `.env` or any API keys. All secrets must be in environment variables only — see `AGENTS.md`.
-
----
-
-## API Reference & curl Examples
-
-### Health
-
-```bash
-curl http://localhost:8000/health
+```powershell
+# From repo root
+.\start_ai_tunnel.ps1
 ```
 
+This launches:
+1. AI service on `http://127.0.0.1:8001`.
+2. Secure ngrok HTTPS tunnel forwarding to port 8001.
+3. Automatically outputs the public URL to set as `AI_SERVICE_URL` in the Render dashboard.
+
+---
+
+## API Reference & Examples
+
+### Health Check
+
+```bash
+curl http://localhost:8001/health
+```
+
+Response:
 ```json
 {
   "status": "ok",
   "mock_mode": false,
-  "models": { "yield": "yield-v1.0.0", "risk": "risk-v1.0.0" }
+  "models": {
+    "yield": "yield-v1.0.0",
+    "risk": "risk-v1.0.0"
+  }
 }
 ```
 
----
-
-### POST /v1/yield-prediction
-
-Requires farm boundary coordinates for live satellite/weather/soil collection.
+### Yield Prediction
 
 ```bash
-curl -X POST http://localhost:8000/v1/yield-prediction \
+curl -X POST http://localhost:8001/v1/yield-prediction \
   -H "Content-Type: application/json" \
   -d '{
     "crop": "wheat",
@@ -205,216 +191,42 @@ curl -X POST http://localhost:8000/v1/yield-prediction \
   }'
 ```
 
-**Response**:
-
-```json
-{
-  "yield_value": 3124.5,
-  "unit": "kg/ha",
-  "confidence": 0.847,
-  "model_version": "yield-v1.0.0",
-  "low_confidence": false,
-  "inference_ms": 23,
-  "data_sources": { "satellite": "live", "weather": "live", "soil": "live" },
-  "centroid": { "lat": 23.0789, "lon": 76.8656 }
-}
-```
-
-> If any external API fails, `data_sources` shows `"fallback"` for that source and backend-provided values are used. The service never crashes due to a failed external call.
-
----
-
-### POST /v1/risk-score
+### Crop Leaf Health Diagnostic
 
 ```bash
-curl -X POST http://localhost:8000/v1/risk-score \
-  -H "Content-Type: application/json" \
-  -d '{
-    "crop": "wheat",
-    "area_ha": 1.5,
-    "boundary_coordinates": [[76.8601,23.0748],[76.8712,23.0748],[76.8712,23.0831],[76.8601,23.0831],[76.8601,23.0748]],
-    "centroid_lat": 23.0789,
-    "centroid_lon": 76.8656,
-    "weather": { "rainfall": 80, "temp_mean": 28, "humidity": 65 },
-    "soil":    { "pH": 6.5, "N": 50, "P": 25, "K": 200 },
-    "satellite": { "ndvi_mean": 0.5, "ndwi_mean": 0.0, "ndmi_mean": 0.0 }
-  }'
-```
-
-**Response**:
-
-```json
-{
-  "risk_score": 0.34,
-  "risk_band": "LOW",
-  "factors": [
-    { "name": "drought_risk", "value": 0.2, "weight": 0.3 },
-    { "name": "disease_risk", "value": 0.5, "weight": 0.25 }
-  ],
-  "confidence": 0.81,
-  "model_version": "risk-v1.0.0",
-  "low_confidence": false
-}
-```
-
----
-
-### POST /v1/crop-health (multipart)
-
-```bash
-curl -X POST http://localhost:8000/v1/crop-health \
-  -F "image=@/path/to/crop.jpg" \
+curl -X POST http://localhost:8001/v1/crop-health \
+  -F "image=@leaf_sample.jpg" \
   -F "crop=wheat" \
   -F "growth_stage=vegetative"
 ```
 
----
-
-### POST /v1/damage-assessment (multipart)
+### Soil Health Card OCR
 
 ```bash
-curl -X POST http://localhost:8000/v1/damage-assessment \
-  -F "images=@before.jpg" \
-  -F "images=@after.jpg" \
-  -F "crop=rice" \
-  -F "event_type=flood"
+curl -X POST http://localhost:8001/v1/soil-ocr \
+  -F "file=@soil_card.jpg"
 ```
 
 ---
 
-### POST /v1/soil-ocr (multipart)
+## Standard Response Envelope
 
-```bash
-curl -X POST http://localhost:8000/v1/soil-ocr \
-  -F "file=@soil_report.pdf"
-```
-
----
-
-### POST /v1/advisory
-
-```bash
-curl -X POST http://localhost:8000/v1/advisory \
-  -H "Content-Type: application/json" \
-  -d '{
-    "crop": "wheat",
-    "growth_stage": "vegetative",
-    "soil": { "pH": 6.2, "N": 40, "P": 20, "K": 180 },
-    "weather": { "rainfall": 60, "temp_mean": 26 }
-  }'
-```
-
----
-
-## Response Envelope
-
-All endpoints follow the project-wide response envelope defined in `contracts/openapi.yaml`:
+All endpoints return the project-wide response envelope defined in `openapi.yaml`:
 
 ```json
 {
   "success": true,
-  "data": {},
-  "meta": { "request_id": "uuid", "timestamp": "2026-08-16T10:00:00Z" },
+  "data": {
+    "model_version": "yield-v1.0.0",
+    "confidence": 0.88,
+    "low_confidence": false
+  },
+  "meta": {
+    "request_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "timestamp": "2026-09-14T02:00:00Z"
+  },
   "error": null
 }
 ```
 
-Every response includes `model_version` and `confidence` (0–1). When confidence is below `MIN_CONFIDENCE`, `low_confidence: true` is set — the response is still valid, never an invented diagnosis.
-
----
-
-## Running Tests
-
-```bash
-# Full test suite
-pytest tests/ -v
-
-# Quick endpoint smoke test (service must be running on :8000)
-python test_all_endpoints.py
-
-# Import sanity check
-python test_imports.py
-
-# Inference pipeline test
-python test_inference_pipeline.py
-```
-
----
-
-## Training Models
-
-```bash
-# 1. Generate a synthetic training dataset (saves to data/)
-python training/generate_dataset.py
-
-# 2. Train yield prediction model (RandomForest → models/yield/yield_model.pkl)
-python training/yield/train.py
-
-# 3. Train risk scoring model (→ models/risk/risk_model.pkl)
-python training/risk/train.py
-
-# 4. Crop health (PyTorch / YOLOv11 — GPU recommended)
-python training/crop_health/train.py
-
-# 5. Damage assessment
-python training/damage/train.py
-```
-
----
-
-## MOCK_MODE
-
-Set `MOCK_MODE=true` to return realistic hardcoded responses for every endpoint without loading any models or calling external APIs. Unblocks Backend and Web teams before real models are ready.
-
-```env
-MOCK_MODE=true
-```
-
-All mock responses match the field shapes defined in `contracts/openapi.yaml`.
-
----
-
-## Data Sources
-
-| Source | Provider | Used For |
-|---|---|---|
-| Satellite imagery | Copernicus / Sentinel-2 | NDVI, NDWI, NDMI indices |
-| Weather | OpenWeatherMap | Rainfall, temperature, humidity, wind |
-| Soil | SoilHive API | N, P, K, pH, organic carbon |
-
-If a live source fails, the service falls back to backend-provided values and marks `"fallback"` in `data_sources`. No hard crashes.
-
----
-
-## Docker
-
-```bash
-# Build
-docker build -t agrishield-ai .
-
-# Run in mock mode (no GPU, no API keys needed)
-docker run -p 8000:8000 -e MOCK_MODE=true agrishield-ai
-
-# Run in live mode
-docker run -p 8000:8000 \
-  -e MOCK_MODE=false \
-  -e COPERNICUS_CLIENT_ID=<your-id> \
-  -e COPERNICUS_CLIENT_SECRET=<your-secret> \
-  -e OPENWEATHER_API_KEY=<your-key> \
-  -e SOILHIVE_CLIENT_ID=<your-id> \
-  -e SOILHIVE_CLIENT_SECRET=<your-secret> \
-  agrishield-ai
-```
-
----
-
-## Contract
-
-This service is **AI-only** — it never makes insurance decisions, never stores uploaded images, and never calls `backend/` directly.  
-All endpoint shapes are defined in `contracts/openapi.yaml`. Do not add new fields without a contract PR first.
-
----
-
-## License
-
-Proprietary — AgriShield Enterprise Platform 2026
+Whenever model confidence falls below `MIN_CONFIDENCE` (default 0.70), `low_confidence: true` is flagged so callers can exercise caution without crashing.

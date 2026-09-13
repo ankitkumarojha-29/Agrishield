@@ -493,3 +493,95 @@ paths:
           schema: { type: boolean, default: false }
       responses: { '200': { description: OK } }
 
+  /weather:
+    get:
+      summary: Get current agro-weather for GPS coordinates
+      parameters:
+        - in: query
+          name: lat
+          required: true
+          schema: { type: number }
+        - in: query
+          name: lon
+          required: true
+          schema: { type: number }
+      responses: { '200': { description: OK } }
+
+  /satellite/indices:
+    get:
+      summary: Get live Sentinel-2 vegetative indices (NDVI, NDMI, NDWI)
+      parameters:
+        - in: query
+          name: lat
+          required: true
+          schema: { type: number }
+        - in: query
+          name: lon
+          required: true
+          schema: { type: number }
+        - in: query
+          name: crop
+          schema: { type: string, default: wheat }
+      responses: { '200': { description: OK } }
+
+  /farms/{farm_id}/revenue:
+    get:
+      summary: Estimate farm harvest revenue from predicted yield, acreage, and spot Mandi MSP rate
+      parameters:
+        - in: path
+          name: farm_id
+          required: true
+          schema: { type: string }
+      responses: { '200': { description: OK } }
+
+  /farms/{farm_id}/satellite/indices:
+    get:
+      summary: Get Sentinel-2 NDVI, NDMI, and NDWI indices for farm centroid
+      parameters:
+        - in: path
+          name: farm_id
+          required: true
+          schema: { type: string }
+      responses: { '200': { description: OK } }
+
+  /admin/stats:
+    get:
+      summary: System overview statistics (farmers, acreage, crop distribution, alerts)
+      responses: { '200': { description: OK } }
+
+  /admin/telemetry:
+    get:
+      summary: Real-time system telemetry and AI model inference latencies
+      responses: { '200': { description: OK } }
+
+  /admin/farmers:
+    get:
+      summary: List registered farmers with landholding summaries
+      responses: { '200': { description: OK } }
+
+  /admin/farmers/{farmer_id}:
+    get:
+      summary: Comprehensive farmer profile drilldown with all farms, scans, and soil reports
+      parameters:
+        - in: path
+          name: farmer_id
+          required: true
+          schema: { type: string }
+      responses: { '200': { description: OK } }
+
+  /admin/alerts/broadcast:
+    post:
+      summary: Broadcast high-priority weather and pest alerts to all registered farmers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, message]
+              properties:
+                title: { type: string }
+                message: { type: string }
+                severity: { type: string, enum: [info, warning, critical] }
+                target_crop: { type: string, nullable: true }
+      responses: { '200': { description: OK } }
+
