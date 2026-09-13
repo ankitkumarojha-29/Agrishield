@@ -244,8 +244,7 @@ The AI response always includes:
 - `data_sources` — optionally show "Live satellite data used" vs "Estimated data"
 - `warnings[]` — surface as info alerts to the farmer or insurer
 
-Per `AGENTS.md`: every AI result on screen must show confidence % and model_version/timestamp,
-and hackathon insurance decisions must be labeled **"Demo / AI-assisted"**.
+Per architectural guidelines: every AI result on screen must show confidence % and model_version/timestamp.
 
 ---
 

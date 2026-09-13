@@ -83,4 +83,14 @@ Thumbs.db
 .idea/
 **/.idea/
 .vscode/
-**/.vscode/
+**/.vscode/
+
+# Exclude non-production & future modules from deployment
+future feature/
+future feature
+soil_health_card.pdf
+soil_health_card.png
+DEPLOYMENT_GUIDE.md
+*DEPLOYMENT*
+
+

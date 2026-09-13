@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: agrishield-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: AI_SERVICE_URL
+        sync: false
+      - key: AI_MODE
+        value: live
+      - key: MOCK_MODE
+        value: "false"
+      - key: COPERNICUS_CLIENT_ID
+        sync: false
+      - key: COPERNICUS_CLIENT_SECRET
+        sync: false
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: AGMARKNET_API_KEY
+        sync: false

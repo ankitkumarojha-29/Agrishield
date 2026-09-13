@@ -27,9 +27,30 @@ from dotenv import load_dotenv
 # ============================================================
 
 
-# ============================================================
-# IMPORTABLE API (used by data_pipeline — no disk writes)
-# ============================================================
+_CACHED_SOILHIVE_TOKEN = None
+
+def _get_soilhive_token() -> str:
+    global _CACHED_SOILHIVE_TOKEN
+    cid = os.getenv("SOILHIVE_CLIENT_ID")
+    csec = os.getenv("SOILHIVE_CLIENT_SECRET")
+    if cid and csec:
+        try:
+            import requests
+            r = requests.post(
+                "https://auth.soilhive.ag/realms/soilhive/protocol/openid-connect/token",
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": cid,
+                    "client_secret": csec,
+                },
+                timeout=8
+            )
+            if r.status_code == 200:
+                _CACHED_SOILHIVE_TOKEN = r.json().get("access_token")
+                return _CACHED_SOILHIVE_TOKEN
+        except Exception:
+            pass
+    return _CACHED_SOILHIVE_TOKEN or os.getenv("SOILHIVE_API_TOKEN", "")
 
 def fetch_soil(lat: float, lon: float, bbox: dict) -> dict:
     """
@@ -64,9 +85,9 @@ def fetch_soil(lat: float, lon: float, bbox: dict) -> dict:
     _base = Path(__file__).resolve().parents[2]
     load_dotenv(_base / ".env")
 
-    token = os.getenv("SOILHIVE_API_TOKEN")
+    token = _get_soilhive_token()
     if not token:
-        raise RuntimeError("SOILHIVE_API_TOKEN missing from ai/.env")
+        raise RuntimeError("SOILHIVE credentials or token missing from ai/.env")
 
     import requests
     url = "https://api.soilhive.ag/v1/soil-data-by-geometry"

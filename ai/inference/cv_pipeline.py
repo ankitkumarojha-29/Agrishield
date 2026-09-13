@@ -96,7 +96,7 @@ def _load_crop_model():
         torch.load(_CROP_MODEL_PATH, map_location=DEVICE)
     )
     _crop_model.to(DEVICE).eval()
-    print(f"[cv_pipeline] ✅ Crop health model loaded ({len(_crop_classes)} classes)")
+    print(f"[cv_pipeline] [OK] Crop health model loaded ({len(_crop_classes)} classes)")
 
 
 def _load_damage_model():
@@ -117,7 +117,7 @@ def _load_damage_model():
         torch.load(_DMG_MODEL_PATH, map_location=DEVICE)
     )
     _dmg_model.to(DEVICE).eval()
-    print(f"[cv_pipeline] ✅ Damage model loaded ({len(_dmg_classes)} classes)")
+    print(f"[cv_pipeline] [OK] Damage model loaded ({len(_dmg_classes)} classes)")
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

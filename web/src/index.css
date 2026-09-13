@@ -1,56 +1,93 @@
 @import "tailwindcss";
 
-@theme {
-  --color-surface-variant: #e2e3e1;
-  --color-on-secondary-fixed-variant: #723600;
-  --color-on-surface-variant: #3f493f;
-  --color-background: #f9f9f7;
-  --color-secondary-container: #ff8927;
-  --color-primary-fixed: #9bf7ac;
-  --color-on-primary-fixed-variant: #005224;
-  --color-tertiary: #245488;
-  --color-on-error: #ffffff;
-  --color-inverse-primary: #80da92;
-  --color-on-tertiary: #ffffff;
-  --color-secondary-fixed-dim: #ffb786;
-  --color-surface-container-highest: #e2e3e1;
-  --color-tertiary-fixed: #d3e3ff;
-  --color-surface-dim: #dadad8;
-  --color-surface-container-high: #e8e8e6;
-  --color-primary-fixed-dim: #80da92;
-  --color-secondary: #964900;
-  --color-tertiary-container: #406ca2;
-  --color-tertiary-fixed-dim: #a3c9ff;
-  --color-inverse-on-surface: #f1f1ef;
-  --color-on-secondary-fixed: #311400;
-  --color-on-background: #1a1c1b;
-  --color-on-primary-fixed: #00210a;
-  --color-on-tertiary-container: #e2ecff;
-  --color-surface-container-lowest: #ffffff;
-  --color-outline: #6f7a6e;
-  --color-surface-container: #eeeeec;
-  --color-primary: #00602b;
-  --color-on-primary: #ffffff;
-  --color-on-tertiary-fixed: #001c39;
-  --color-surface-container-low: #f4f4f2;
-  --color-on-secondary: #ffffff;
-  --color-on-tertiary-fixed-variant: #14487c;
-  --color-secondary-fixed: #ffdcc6;
-  --color-on-secondary-container: #642f00;
-  --color-error: #ba1a1a;
-  --color-primary-container: #1b7a3d;
-  --color-on-primary-container: #abffb8;
-  --color-on-surface: #1a1c1b;
-  --color-surface-tint: #026d32;
-  --color-inverse-surface: #2f3130;
-  --color-error-container: #ffdad6;
-  --color-on-error-container: #93000a;
-  --color-surface: #f9f9f7;
-  --color-surface-bright: #f9f9f7;
+@layer base {
+  :root {
+    --color-background: #fbfdf9;
+    --color-surface: #ffffff;
+    --color-surface-dim: #f4f6f2;
+    --color-surface-container: #ffffff;
+    --color-surface-container-low: #f7faf5;
+    --color-surface-container-lowest: #ffffff;
+    --color-surface-container-high: #eef3eb;
+    --color-surface-container-highest: #e3ece0;
+    
+    /* Farm green palette */
+    --color-primary: #15803d; /* Lush green */
+    --color-primary-container: #dcfce7;
+    --color-on-primary: #ffffff;
+    --color-on-primary-container: #14532d;
+    --color-surface-tint: #16a34a;
+
+    /* Harvest Gold / Amber */
+    --color-secondary: #d97706;
+    --color-secondary-container: #fef3c7;
+    --color-on-secondary: #ffffff;
+    --color-on-secondary-container: #78350f;
+
+    /* Sky / Satellite Blue */
+    --color-tertiary: #0284c7;
+    --color-tertiary-container: #e0f2fe;
+    --color-on-tertiary: #ffffff;
+    --color-on-tertiary-container: #0369a1;
+
+    /* Neutrals & Text */
+    --color-on-background: #0f172a;
+    --color-on-surface: #1e293b;
+    --color-on-surface-variant: #475569;
+    --color-outline: #cbd5e1;
+    --color-outline-variant: #e2e8f0;
+
+    /* Alerts */
+    --color-error: #dc2626;
+    --color-error-container: #fee2e2;
+    --color-on-error: #ffffff;
+    --color-on-error-container: #991b1b;
+  }
 }
 
 body {
-    background-color: var(--color-background);
-    color: var(--color-on-surface);
-    font-family: "Inter", sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Farm-themed custom utilities */
+.farm-gradient-hero {
+  background: radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 40%),
+              radial-gradient(circle at bottom left, rgba(217, 119, 6, 0.08), transparent 35%),
+              linear-gradient(180deg, #ffffff 0%, #fbfdf9 100%);
+}
+
+.farm-card {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 20px -2px rgba(22, 101, 52, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.farm-card:hover {
+  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: 0 10px 25px -3px rgba(22, 101, 52, 0.09), 0 4px 8px -2px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+.badge-green {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-amber {
+  background-color: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-blue {
+  background-color: #f0f9ff;
+  color: #075985;
+  border: 1px solid #bae6fd;
 }

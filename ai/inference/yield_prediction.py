@@ -43,6 +43,34 @@ def _load():
             _metadata = _generate_fallback_metadata(config.YIELD_MODEL, _pipeline)
 
 
+CROP_ALIASES = {
+    "wheat": "wheat", "gehun": "wheat", "sharbati": "wheat",
+    "rice": "rice", "paddy": "rice", "dhan": "rice",
+    "soybean": "soybean", "soya": "soybean", "soyabean": "soybean",
+    "maize": "maize", "corn": "maize", "makka": "maize",
+    "cotton": "cotton", "kapas": "cotton",
+    "chickpea": "chickpea", "gram": "chickpea", "chana": "chickpea",
+    "mustard": "chickpea", "sarson": "chickpea",
+    "sugarcane": "maize", "jowar": "maize", "bajra": "maize",
+}
+VALID_CROPS = {"wheat", "rice", "soybean", "maize", "cotton", "chickpea"}
+
+
+def normalize_crop(crop_name: str) -> str:
+    """Normalize input crop names to one of the 6 trained model categories."""
+    if not crop_name:
+        return "wheat"
+    s = str(crop_name).strip().lower()
+    if s in VALID_CROPS:
+        return s
+    if s in CROP_ALIASES:
+        return CROP_ALIASES[s]
+    for alias, standard in CROP_ALIASES.items():
+        if alias in s:
+            return standard
+    return "wheat"
+
+
 def predict_yield(features: dict) -> dict:
     """
     Predict crop yield from a feature dict.
@@ -52,6 +80,8 @@ def predict_yield(features: dict) -> dict:
     _load()
     all_cols = _metadata["features"]
     row = {col: features.get(col, 0) for col in all_cols}
+    if "crop" in row:
+        row["crop"] = normalize_crop(row["crop"])
     df = pd.DataFrame([row])
 
     t0 = time.time()

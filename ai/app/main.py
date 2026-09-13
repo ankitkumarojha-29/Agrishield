@@ -30,5 +30,8 @@ app.include_router(soil_ocr.router, prefix="/v1/soil-ocr", tags=["soil-ocr"])
 app.include_router(advisory.router, prefix="/v1/advisory", tags=["advisory"])
 
 if __name__ == "__main__":
+    import os
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8001))
+    uvicorn.run(app, host="0.0.0.0", port=port)
+

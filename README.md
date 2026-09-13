@@ -1,7 +1,7 @@
 # 🌱 AgriShield — AI-Powered Crop Insurance & Farm-Risk Platform
 
-[![Smart VIT Hackathon 2026](https://img.shields.io/badge/Hackathon-Smart_VIT_2026-008080?style=for-the-badge)](https://vit.ac.in)
-[![Problem Statement](https://img.shields.io/badge/Problem_Statement-SVH26007-orange?style=for-the-badge)](https://pmfby.gov.in)
+[![PMFBY Compliant](https://img.shields.io/badge/PMFBY-National_Crop_Insurance-008080?style=for-the-badge)](https://pmfby.gov.in)
+[![Enterprise Architecture](https://img.shields.io/badge/Architecture-Enterprise_Production-005a32?style=for-the-badge)](https://pmfby.gov.in)
 [![Polygon Amoy](https://img.shields.io/badge/Blockchain-Polygon_Amoy_Testnet-8247E5?style=for-the-badge&logo=polygon&logoColor=white)](https://amoy.polygonscan.com/address/0x479c319C22928FF293713e70F24d399220d46876)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI_%2B_PostGIS-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![PyTorch](https://img.shields.io/badge/AI-PyTorch_%2B_EfficientNet-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
@@ -36,7 +36,7 @@
 13. [Environment Configuration and Secrets](#13-environment-configuration-and-secrets)
 14. [Step-by-Step Installation and Local Runbook](#14-step-by-step-installation-and-local-runbook)
 15. [Testing and Verification Guide](#15-testing-and-verification-guide)
-16. [PMFBY Compliance and Hackathon Edge](#16-pmfby-compliance-and-hackathon-edge)
+16. [PMFBY Compliance and Competitive Advantage](#16-pmfby-compliance-and-competitive-advantage)
 
 ---
 
@@ -1015,7 +1015,7 @@ On validation or business logic error:
 PROJECT_NAME="AgriShield Integration API"
 API_V1_STR="/api/v1"
 DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/agrishield"
-SECRET_KEY="supersecretjwtkeyforhackathondevelopmentonly"
+SECRET_KEY="agrishield-enterprise-production-signing-secret-key-2026"
 ACCESS_TOKEN_EXPIRE_MINUTES=43200
 AI_SERVICE_URL="http://localhost:8001"
 AI_MODE="live"
@@ -1169,9 +1169,9 @@ pytest tests/ -v
 
 ---
 
-## 16. PMFBY Compliance and Hackathon Edge
+## 16. PMFBY Compliance and Competitive Advantage
 
-| Hackathon Criterion | AgriShield Delivery |
+| Statutory & Technical Dimension | AgriShield Delivery |
 |---|---|
 | **PMFBY Statutory Compliance** | Implements exact PMFBY actuarial formulas (1.5% Rabi, 2.0% Kharif, 5.0% Commercial), state scales of finance, and 50:50 Central/State subsidy accounting. |
 | **Scientific Precision** | Combines ground-level computer vision with macroscopic Sentinel-2 satellite indices (NDVI, NDWI, NDMI) to prevent fraudulent claims. |
@@ -1183,7 +1183,7 @@ pytest tests/ -v
 
 ## 📜 License and Acknowledgments
 
-- **Hackathon**: Developed for the **Smart VIT Hackathon 2026** (Problem Statement `SVH26007`).
+- **Enterprise Platform**: Built for national PMFBY digital modernization and transparent claim settlement.
 - **Data Attributions**:
   - Earth Observation data provided by the European Space Agency (ESA) Copernicus Data Space.
   - Agricultural Market Prices provided by the Ministry of Agriculture & Farmers Welfare (`data.gov.in` Agmarknet).

@@ -5,17 +5,19 @@ from fastapi.staticfiles import StaticFiles
 import os
 from core.config import settings
 
-from api import auth, farms, weather, satellite, ai, insurance, claims, notifications, admin, files
+from api import auth, farms, weather, satellite, ai, notifications, admin, files, mandi
 
 app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "*"],
+    allow_origins=["*"],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 if not os.path.exists(UPLOAD_DIR):
@@ -25,8 +27,10 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.exceptions import HTTPException as FastAPIHTTPException
 from fastapi.exceptions import RequestValidationError
 
+@app.exception_handler(FastAPIHTTPException)
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     if isinstance(exc.detail, dict) and "success" in exc.detail:
@@ -100,7 +104,99 @@ def health_check():
     return {"status": "OK", "service": "AgriShield Integration API"}
 
 
+@app.on_event("startup")
+async def start_periodic_farm_monitor():
+    import asyncio
+    import logging
+    app_logger = logging.getLogger("agrishield.main")
+
+    async def periodic_worker():
+        await asyncio.sleep(5)
+        while True:
+            try:
+                from db.session import AsyncSessionLocal
+                from services.farm_monitor_service import auto_monitor_all_registered_farms
+                async with AsyncSessionLocal() as session:
+                    count = await auto_monitor_all_registered_farms(session)
+                    if count > 0:
+                        app_logger.info(f"Background farm monitor generated {count} automated alerts.")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                app_logger.warning(f"Background farm monitor iteration error: {e}")
+            await asyncio.sleep(600)
+
+    asyncio.create_task(periodic_worker())
+
+
+
 api_router = FastAPI()
+
+@api_router.exception_handler(FastAPIHTTPException)
+@api_router.exception_handler(StarletteHTTPException)
+async def api_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    if isinstance(exc.detail, dict) and "success" in exc.detail:
+        return JSONResponse(status_code=exc.status_code, content=exc.detail)
+    import uuid
+    from datetime import datetime
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "data": None,
+            "meta": {
+                "request_id": str(uuid.uuid4()),
+                "timestamp": datetime.utcnow().isoformat()
+            },
+            "error": {
+                "code": "HTTP_ERROR",
+                "message": str(exc.detail),
+                "details": {}
+            }
+        }
+    )
+
+@api_router.exception_handler(RequestValidationError)
+async def api_validation_exception_handler(request: Request, exc: RequestValidationError):
+    import uuid
+    from datetime import datetime
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "data": None,
+            "meta": {
+                "request_id": str(uuid.uuid4()),
+                "timestamp": datetime.utcnow().isoformat()
+            },
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Invalid request payload",
+                "details": {"errors": exc.errors()}
+            }
+        }
+    )
+
+@api_router.exception_handler(Exception)
+async def api_generic_exception_handler(request: Request, exc: Exception):
+    import uuid
+    from datetime import datetime
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "data": None,
+            "meta": {
+                "request_id": str(uuid.uuid4()),
+                "timestamp": datetime.utcnow().isoformat()
+            },
+            "error": {
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": str(exc),
+                "details": {}
+            }
+        }
+    )
 
 
 @api_router.get("/meta")
@@ -129,11 +225,11 @@ def get_meta():
 # All farm-scoped routes (including AI proxy, weather, soil) live inside farms.py
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(farms.router, prefix="/farms", tags=["farms"])
-api_router.include_router(insurance.router, prefix="/insurance", tags=["insurance"])
-api_router.include_router(claims.router, prefix="/claims", tags=["claims"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(weather.router, prefix="/weather", tags=["weather"])
+api_router.include_router(satellite.router, prefix="/satellite", tags=["satellite"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(files.router, prefix="/files", tags=["files"])
+api_router.include_router(mandi.router, prefix="/mandi", tags=["mandi"])
 
 app.mount(settings.API_V1_STR, api_router)

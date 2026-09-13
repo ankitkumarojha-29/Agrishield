@@ -1,6 +1,6 @@
 import uuid
 import enum
-from sqlalchemy import Column, String, Float, ForeignKey, DateTime, Enum as SQLEnum, Text, Boolean, LargeBinary
+from sqlalchemy import Column, String, Float, ForeignKey, DateTime, Enum as SQLEnum, Text, Boolean, LargeBinary, Date
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -18,8 +18,8 @@ class FarmStatus(str, enum.Enum):
     BOUNDARY_INVALID = "BOUNDARY_INVALID"
 
 class SoilReportSource(str, enum.Enum):
-    OCR = "ocr"
-    FALLBACK = "soil_health_card_fallback"
+    OCR = "OCR"
+    FALLBACK = "FALLBACK"
 
 class AssessmentType(str, enum.Enum):
     CROP_HEALTH = "crop_health"
@@ -49,10 +49,11 @@ class ClaimStatus(str, enum.Enum):
     REJECTED = "REJECTED"
 
 class NotificationType(str, enum.Enum):
-    CLAIM_STATUS = "claim_status"
-    POLICY_STATUS = "policy_status"
-    WEATHER_ALERT = "weather_alert"
-    RISK_ALERT = "risk_alert"
+    CLAIM_STATUS = "CLAIM_STATUS"
+    POLICY_STATUS = "POLICY_STATUS"
+    WEATHER_ALERT = "WEATHER_ALERT"
+    RISK_ALERT = "RISK_ALERT"
+    SYSTEM_ALERT = "SYSTEM_ALERT"
 
 class User(Base):
     __tablename__ = "users"
@@ -64,6 +65,8 @@ class User(Base):
     role = Column(SQLEnum(UserRole), default=UserRole.FARMER)
     language = Column(String, default="en")
     hashed_password = Column(String, nullable=True) # For admins
+    is_approved = Column(Boolean, default=True) # Requires approval by existing admin if new admin
+    avatar_url = Column(Text, nullable=True) # Profile photo URL or Data URI
     created_at = Column(DateTime, default=func.now())
     
     farms = relationship("Farm", back_populates="owner", foreign_keys="Farm.user_id")
@@ -74,8 +77,11 @@ class Farm(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     name = Column(String, nullable=False)
+    khasra_number = Column(String, nullable=True)
     crop = Column(String, nullable=True)
     sowing_date = Column(DateTime, nullable=True)
+    soil_type = Column(String, nullable=True)
+    irrigation_type = Column(String, nullable=True)
     boundary = Column(Geometry(geometry_type='POLYGON', srid=4326))
     area_m2 = Column(Float)
     status = Column(SQLEnum(FarmStatus), default=FarmStatus.PENDING)
@@ -174,3 +180,22 @@ class FileRecord(Base):
     data = Column(LargeBinary, nullable=False)
     mime_type = Column(String, nullable=False)
     created_at = Column(DateTime, default=func.now())
+
+
+class MandiPriceRecord(Base):
+    __tablename__ = "mandi_rates"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    state = Column(String(100), index=True, nullable=False)
+    district = Column(String(100), nullable=True)
+    market = Column(String(150), index=True, nullable=False)
+    commodity = Column(String(100), index=True, nullable=False)
+    variety = Column(String(100), nullable=True)
+    grade = Column(String(50), nullable=True)
+    arrival_date = Column(String(50), nullable=True)
+    rate_date = Column(Date, default=func.current_date(), index=True)
+    min_price = Column(Float, nullable=False)
+    max_price = Column(Float, nullable=False)
+    modal_price = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+

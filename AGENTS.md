@@ -1,4 +1,4 @@
-# AGENTS.md — AgriShield (Smart VIT Hackathon 2026, PS SVH26007)
+# AGENTS.md — AgriShield (Enterprise PMFBY AI Crop Insurance Platform)
 
 Single repo. All contributors branch off `main` and open PRs into it — nobody pushes to `main` directly.
 This file is read by AI coding agents (Claude Code, Cursor, Antigravity, Codex, etc.) before touching this repo.
@@ -155,7 +155,7 @@ Use standardized error codes from `openapi.yaml#/components/schemas/ErrorCode`:
 - **Rules**:
   - Always render loading, empty, error, and retry states.
   - Display AI confidence score and model version on all AI-assisted results.
-  - Show "AI-assisted / Demo" badges on hackathon insurance decisions.
+  - Display AI confidence score and model version on all automated assessments.
 
 ### ROLE: Flutter App Developer (`app/`)
 - **Stack**: Flutter 3 (Android, iOS, Web, Desktop), Riverpod state management, typed `ApiClient`.

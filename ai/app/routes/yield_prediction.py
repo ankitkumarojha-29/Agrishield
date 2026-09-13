@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import List, Optional
 from fastapi import APIRouter, Body, HTTPException
 from app import config
-from inference.yield_prediction import predict_yield
+from inference.yield_prediction import predict_yield, normalize_crop
 
 router = APIRouter()
 
@@ -115,7 +115,7 @@ async def predict_yield_endpoint(
 
     # Build feature dict for the model
     features = {
-        "crop": crop,
+        "crop": normalize_crop(crop),
         "area_ha": area_ha,
         "rainfall":    w.get("rainfall",    rainfall),
         "temp_mean":   w.get("temp_mean",   temp_mean),

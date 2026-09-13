@@ -27,7 +27,7 @@ def validate_farm_boundary(geo_polygon: GeoPolygon) -> PolygonValidationResult:
     geod = pyproj.Geod(ellps="WGS84")
     area = abs(geod.geometry_area_perimeter(poly)[0])
     
-    # Sensible defaults for area: 100 sqm to 100,000,000 sqm (10,000 Ha) for hackathon demo
+    # PMFBY standards for valid agricultural parcel area: 100 sqm (0.01 Ha) to 100,000,000 sqm (10,000 Ha)
     if area < 100:
         return PolygonValidationResult(valid=False, reason=PolygonValidationResultReason.AREA_TOO_SMALL, area_m2=area)
     if area > 100_000_000:

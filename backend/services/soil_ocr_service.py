@@ -1,14 +1,12 @@
-"""Soil report OCR endpoint — Multi-page PyMuPDF table extraction + EasyOCR with CLAHE image enhancement + multi-format agronomic parser."""
+"""Soil report OCR and document extraction service for AgriShield backend.
+Supports multi-page PDFs, PyMuPDF table finder, EasyOCR with OpenCV CLAHE illumination normalization, and Hindi/English semantic parsing.
+"""
 import re
 import time
 import io
 import logging
-from fastapi import APIRouter, UploadFile, File
-from app import config
 
 logger = logging.getLogger(__name__)
-
-router = APIRouter()
 
 _reader = None
 
@@ -31,7 +29,7 @@ def get_ocr_reader():
 
 
 def _preprocess_image(img_bytes: bytes) -> bytes:
-    """Enhance image contrast and illumination using OpenCV CLAHE for better OCR accuracy."""
+    """Enhance image contrast and illumination using OpenCV CLAHE for mobile photos."""
     try:
         import cv2
         import numpy as np
@@ -40,7 +38,6 @@ def _preprocess_image(img_bytes: bytes) -> bytes:
         if img is None:
             return img_bytes
 
-        # Resize if overly large (>2200px) to prevent memory issues and speed up OCR
         h, w = img.shape[:2]
         if max(h, w) > 2200:
             scale = 2200.0 / max(h, w)
@@ -57,34 +54,27 @@ def _preprocess_image(img_bytes: bytes) -> bytes:
 
 
 def _parse_nutrient_from_text(text: str, label_pattern: str):
-    """Regex nutrient parser supporting inline, multiline table, and proximity formats."""
-    # 1. Inline format: Label followed by colon/dash/space and number
     p1 = rf'(?:{label_pattern})[^\d\n]{{0,30}}[:\-\s]+(\d+\.?\d*)'
     m = re.search(p1, text, re.IGNORECASE)
     if m:
         try:
-            val = float(m.groups()[-1])
-            return val
+            return float(m.groups()[-1])
         except (ValueError, TypeError):
             pass
 
-    # 2. Table format: Label on line, number on subsequent line
     p2 = rf'(?:{label_pattern})[^\n]*\n[^\d\n]*(\d+\.?\d*)'
     m = re.search(p2, text, re.IGNORECASE)
     if m:
         try:
-            val = float(m.groups()[-1])
-            return val
+            return float(m.groups()[-1])
         except (ValueError, TypeError):
             pass
 
-    # 3. Proximity search: Label followed by number within 40 characters
     p3 = rf'(?:{label_pattern})[^\d]{{0,40}}(\d+\.?\d*)'
     m = re.search(p3, text, re.IGNORECASE)
     if m:
         try:
-            val = float(m.groups()[-1])
-            return val
+            return float(m.groups()[-1])
         except (ValueError, TypeError):
             pass
 
@@ -92,7 +82,6 @@ def _parse_nutrient_from_text(text: str, label_pattern: str):
 
 
 def _parse_tables_for_nutrients(doc) -> dict:
-    """Extract structured data directly from PDF table objects across all pages."""
     found = {}
     try:
         for page in doc:
@@ -101,28 +90,24 @@ def _parse_tables_for_nutrients(doc) -> dict:
                 for row in tab.extract():
                     row_str = ' '.join([str(c) for c in row if c is not None])
 
-                    # Available Nitrogen (N)
                     if re.search(r'Nitrogen|\bN\b|नाइट्रोजन|नायट्रोजन', row_str, re.IGNORECASE) and 'N' not in found:
                         for cell in row:
                             if cell and re.match(r'^\s*(\d+\.?\d*)\s*$', str(cell)):
                                 found['N'] = float(cell)
                                 break
 
-                    # Available Phosphorus (P)
                     if re.search(r'Phosphorus|P2O5|\bP\b|फास्फोरस|स्फुर', row_str, re.IGNORECASE) and 'P' not in found:
                         for cell in row:
                             if cell and re.match(r'^\s*(\d+\.?\d*)\s*$', str(cell)):
                                 found['P'] = float(cell)
                                 break
 
-                    # Available Potassium (K)
                     if re.search(r'Potassium|K2O|\bK\b|पोटाश|पोटैशियम', row_str, re.IGNORECASE) and 'K' not in found:
                         for cell in row:
                             if cell and re.match(r'^\s*(\d+\.?\d*)\s*$', str(cell)):
                                 found['K'] = float(cell)
                                 break
 
-                    # Soil pH
                     if re.search(r'\bpH\b|पीएच|सामू', row_str, re.IGNORECASE) and 'pH' not in found:
                         for cell in row:
                             if cell and re.match(r'^\s*(\d+\.?\d*)\s*$', str(cell)):
@@ -131,35 +116,30 @@ def _parse_tables_for_nutrients(doc) -> dict:
                                     found['pH'] = val
                                     break
 
-                    # Organic Carbon (OC)
                     if re.search(r'Organic\s*Carbon|\bOC\b|कार्बन', row_str, re.IGNORECASE) and 'organic_carbon' not in found:
                         for cell in row:
                             if cell and re.match(r'^\s*(\d+\.?\d*)\s*$', str(cell)):
                                 found['organic_carbon'] = float(cell)
                                 break
 
-                    # Electrical Conductivity (EC)
                     if re.search(r'Conductivity|\bEC\b|चालकता', row_str, re.IGNORECASE) and 'electrical_conductivity' not in found:
                         for cell in row:
                             if cell and re.match(r'^\s*(\d+\.?\d*)\s*$', str(cell)):
                                 found['electrical_conductivity'] = float(cell)
                                 break
 
-                    # Zinc (Zn)
                     if re.search(r'Zinc|\bZn\b|जिंक', row_str, re.IGNORECASE) and 'zinc' not in found:
                         for cell in row:
                             if cell and re.match(r'^\s*(\d+\.?\d*)\s*$', str(cell)):
                                 found['zinc'] = float(cell)
                                 break
 
-                    # Sulphur (S)
                     if re.search(r'Sulphur|Sulfur|\bS\b|सल्फर|गंधक', row_str, re.IGNORECASE) and 'sulphur' not in found:
                         for cell in row:
                             if cell and re.match(r'^\s*(\d+\.?\d*)\s*$', str(cell)):
                                 found['sulphur'] = float(cell)
                                 break
 
-                    # Farm Area
                     if re.search(r'Area|रकबा', row_str, re.IGNORECASE) and 'area_acres' not in found:
                         area_m = re.search(r'(?:Farm\s*Area|Area|रकबा)[^\d]*(\d+\.?\d*)\s*(ha|hectares?|acres?|एकड़)?', row_str, re.IGNORECASE)
                         if area_m:
@@ -175,7 +155,6 @@ def _parse_tables_for_nutrients(doc) -> dict:
                             except Exception:
                                 pass
 
-                    # Farmer Name
                     if re.search(r'Farmer\s*Name|किसान', row_str, re.IGNORECASE) and 'farmer_name' not in found:
                         fn_m = re.search(r'(?:Farmer\s*Name|किसान\s*का\s*नाम)[^\w]*[:\-]?\s*([A-Za-z\s]{3,35})', row_str, re.IGNORECASE)
                         if fn_m and fn_m.group(1).strip().lower() not in ['farmer name', 'name']:
@@ -183,7 +162,6 @@ def _parse_tables_for_nutrients(doc) -> dict:
                             if len(clean) >= 3:
                                 found['farmer_name'] = clean
 
-                    # Card ID
                     if re.search(r'Card\s*ID|SHC', row_str, re.IGNORECASE) and 'card_id' not in found:
                         cid_m = re.search(r'([A-Z0-9\-_]{6,30})', row_str)
                         if cid_m:
@@ -195,16 +173,13 @@ def _parse_tables_for_nutrients(doc) -> dict:
 
 
 def _parse_soil_text(text: str) -> dict:
-    """Comprehensive semantic nutrient extractor for unstructured card text."""
     N = _parse_nutrient_from_text(text, r'Available\s+Nitrogen(?:\s*\(N\))?|Nitrogen(?:\s*\(N\))?|Avail\.?\s*N|उपलब्ध\s*नाइट्रोजन|नाइट्रोजन|नायट्रोजन')
     P = _parse_nutrient_from_text(text, r'Available\s+Phosphorus(?:\s*\(P\))?|Phosphorus(?:\s*\(P\))?|Available\s+P2O5|P2O5|Avail\.?\s*P|उपलब्ध\s*फास्फोरस|फास्फोरस|स्फुर')
     K = _parse_nutrient_from_text(text, r'Available\s+Potassium(?:\s*\(K\))?|Potassium(?:\s*\(K\))?|Available\s+K2O|K2O|Avail\.?\s*K|उपलब्ध\s*पोटाश|पोटाश|पोटैशियम')
-    
-    # pH validation (agricultural soils are between 3.5 and 10.5)
+
     pH_candidate = _parse_nutrient_from_text(text, r'Soil\s+Reaction(?:\s*\(pH\))?|Soil\s+pH|pH\s*Value|pH(?:\s*\(1:2\.5\))?|pH(?:\s*स्तर)?|पीएच|सामू')
     pH = pH_candidate if (pH_candidate and 3.0 <= pH_candidate <= 11.0) else None
 
-    # Farm Area
     area_acres = None
     area_ha = None
     area_match = re.search(r'(?:Farm\s*Area|Land\s*Area|Area|रकबा|क्षेत्रफल)[^\d\n]*[:\-\s]*(\d+\.?\d*)\s*(ha|hectares?|acres?|एकड़)?', text, re.IGNORECASE)
@@ -251,30 +226,21 @@ def _parse_soil_text(text: str) -> dict:
 
 
 def _extract_from_pdf(content: bytes) -> tuple[dict, str, str]:
-    """Multi-page PDF extraction trying table detection, digital text, and rasterized OCR."""
     full_text = ""
     engine = "pymupdf-table"
-    table_data = {}
 
     try:
         import pymupdf
         doc = pymupdf.open(stream=content, filetype="pdf")
-
-        # 1. First attempt: Structured table finder on all pages (up to 4 pages)
         table_data = _parse_tables_for_nutrients(doc)
 
-        # 2. Extract digital text from all pages
         pages_text = [page.get_text() or "" for page in doc]
         full_text = "\n".join(pages_text).strip()
 
-        # Check if table finder already found the primary nutrients
-        has_primary = all(table_data.get(k) is not None for k in ['N', 'P', 'K', 'pH'])
-        if has_primary:
+        if all(table_data.get(k) is not None for k in ['N', 'P', 'K', 'pH']):
             return table_data, full_text, "pymupdf-tables"
 
-        # 3. Fallback to full text regex if digital text is present
         text_parsed = _parse_soil_text(full_text)
-        # Merge table data and text parsed data
         merged = {**table_data}
         for k, v in text_parsed.items():
             if merged.get(k) is None and v is not None:
@@ -283,7 +249,6 @@ def _extract_from_pdf(content: bytes) -> tuple[dict, str, str]:
         if sum(1 for k in ['N', 'P', 'K', 'pH'] if merged.get(k) is not None) >= 3:
             return merged, full_text, "pymupdf-hybrid"
 
-        # 4. Scanned PDF fallback: Rasterize pages (up to 3) into images and run EasyOCR with CLAHE
         reader = get_ocr_reader()
         if reader is not None and len(doc) > 0:
             ocr_text_parts = []
@@ -292,7 +257,7 @@ def _extract_from_pdf(content: bytes) -> tuple[dict, str, str]:
                 img_bytes = _preprocess_image(pix.tobytes("png"))
                 ocr_lines = reader.readtext(img_bytes, detail=0)
                 ocr_text_parts.append(" ".join(ocr_lines))
-            
+
             scanned_text = " ".join(ocr_text_parts).strip()
             if scanned_text:
                 scanned_parsed = _parse_soil_text(scanned_text)
@@ -305,7 +270,6 @@ def _extract_from_pdf(content: bytes) -> tuple[dict, str, str]:
     except Exception as e:
         logger.warning(f"PyMuPDF PDF extraction error: {e}")
 
-    # Fallback to pypdf
     try:
         import pypdf
         reader = pypdf.PdfReader(io.BytesIO(content))
@@ -319,7 +283,6 @@ def _extract_from_pdf(content: bytes) -> tuple[dict, str, str]:
 
 
 def _extract_from_image(content: bytes) -> tuple[dict, str, str]:
-    """Image extraction with OpenCV CLAHE illumination normalization + EasyOCR."""
     reader = get_ocr_reader()
     full_text = ""
     if reader is not None:
@@ -334,25 +297,20 @@ def _extract_from_image(content: bytes) -> tuple[dict, str, str]:
     return {}, full_text, "image-fallback"
 
 
-@router.post("/")
-async def extract_soil_data(file: UploadFile = File(...)):
-    """Extract soil nutrient data from any formatted PDF or image soil health card."""
+def extract_soil_data_from_bytes(file_bytes: bytes, filename: str = "") -> dict:
     t0 = time.time()
     try:
-        content = await file.read()
-        filename = (file.filename or "").lower()
-
-        is_pdf = content.startswith(b"%PDF") or filename.endswith(".pdf")
+        fn_lower = filename.lower()
+        is_pdf = file_bytes.startswith(b"%PDF") or fn_lower.endswith(".pdf")
 
         if is_pdf:
-            parsed, full_text, engine = _extract_from_pdf(content)
+            parsed, full_text, engine = _extract_from_pdf(file_bytes)
         else:
-            parsed, full_text, engine = _extract_from_image(content)
+            parsed, full_text, engine = _extract_from_image(file_bytes)
 
         primary_nutrients = ["N", "P", "K", "pH"]
         found_count = sum(1 for k in primary_nutrients if parsed.get(k) is not None)
 
-        # Baseline fallback only if completely unreadable
         defaults = {"N": 45.0, "P": 22.0, "K": 180.0, "pH": 6.8}
 
         if found_count == 4:
@@ -380,7 +338,7 @@ async def extract_soil_data(file: UploadFile = File(...)):
             "confidence": round(confidence, 2),
             "extracted_text": extracted_text_display,
             "model_version": engine,
-            "low_confidence": confidence < config.MIN_CONFIDENCE,
+            "low_confidence": confidence < 0.7,
             "inference_ms": elapsed,
             "metadata": {
                 "farmer_name": parsed.get("farmer_name"),
@@ -394,7 +352,7 @@ async def extract_soil_data(file: UploadFile = File(...)):
             }
         }
     except Exception as e:
-        logger.error(f"Soil OCR processing error: {e}", exc_info=True)
+        logger.error(f"Soil OCR service error: {e}", exc_info=True)
         elapsed = int((time.time() - t0) * 1000)
         return {
             "N": 45.0, "P": 22.0, "K": 180.0, "pH": 6.8,

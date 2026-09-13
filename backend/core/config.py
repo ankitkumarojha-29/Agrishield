@@ -1,4 +1,7 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings
+
+_env_path = Path(__file__).resolve().parents[1] / ".env"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AgriShield API"
@@ -22,6 +25,12 @@ class Settings(BaseSettings):
     POLYGON_PRIVATE_KEY: str = ""
     SMART_CONTRACT_ADDRESS: str = ""
 
-    model_config = {"env_file": ".env", "extra": "ignore"}
+    # Satellite, Weather & Mandi APIs
+    COPERNICUS_CLIENT_ID: str = ""
+    COPERNICUS_CLIENT_SECRET: str = ""
+    OPENWEATHER_API_KEY: str = ""
+    AGMARKNET_API_KEY: str = ""
+
+    model_config = {"env_file": str(_env_path), "extra": "ignore"}
 
 settings = Settings()

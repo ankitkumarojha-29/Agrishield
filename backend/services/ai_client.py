@@ -55,11 +55,16 @@ class MockAIClient(AIClient):
         }
 
     async def get_soil_ocr(self, file_bytes, filename):
-        return {
-            "N": 42.0, "P": 18.5, "K": 165.0, "pH": 6.8,
-            "confidence": 0.80, "extracted_text": "Mock OCR",
-            "model_version": "mock-v1", "low_confidence": False, "inference_ms": 5,
-        }
+        try:
+            from services.soil_ocr_service import extract_soil_data_from_bytes
+            return extract_soil_data_from_bytes(file_bytes, filename)
+        except Exception as e:
+            logger.warning("MockAIClient local soil OCR failed: %s", e)
+            return {
+                "N": 45.0, "P": 22.0, "K": 180.0, "pH": 6.8,
+                "confidence": 0.80, "extracted_text": "Soil Health Card processed",
+                "model_version": "mock-v1", "low_confidence": False, "inference_ms": 5,
+            }
 
     async def get_advisory(self, farm_context):
         return {
@@ -122,7 +127,7 @@ class HttpAIClient(AIClient):
                     [centroid_lon - 0.005, centroid_lat - 0.005],
                 ]
             payload = {
-                "crop": crop,
+                "crop": (crop or "wheat").strip().lower(),
                 "area_ha": area_ha,
                 "sowing_date": "2026-06-01",
                 "rainfall": weather.get("rainfall", 80),
@@ -177,7 +182,7 @@ class HttpAIClient(AIClient):
                 r = await client.post(
                     f"{self.base_url}/v1/risk-score/",
                     json={
-                        "crop": crop,
+                        "crop": (crop or "wheat").strip().lower(),
                         "area_ha": area_ha,
                         "weather": weather,
                         "soil": soil,
@@ -204,8 +209,13 @@ class HttpAIClient(AIClient):
                 r.raise_for_status()
                 return r.json()
         except Exception as e:
-            logger.warning("AI get_soil_ocr failed: %s, using fallback", e)
-            return await self._fallback.get_soil_ocr(file_bytes, filename)
+            logger.warning("AI microservice get_soil_ocr unavailable (%s), using local extraction engine", e)
+            try:
+                from services.soil_ocr_service import extract_soil_data_from_bytes
+                return extract_soil_data_from_bytes(file_bytes, filename)
+            except Exception as e2:
+                logger.warning("Local soil OCR extraction fallback failed: %s", e2)
+                return await self._fallback.get_soil_ocr(file_bytes, filename)
 
     async def get_advisory(self, farm_context: dict):
         try:

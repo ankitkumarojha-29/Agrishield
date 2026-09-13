@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import List, Optional
 from fastapi import APIRouter, Body
 from app import config
-from inference.risk_scoring import score_risk
+from inference.risk_scoring import score_risk, normalize_crop
 
 router = APIRouter()
 
@@ -74,7 +74,7 @@ async def calculate_risk(
 
     # Build feature dict for the risk model
     features = {
-        "crop":     crop,
+        "crop":     normalize_crop(crop),
         "area_ha":  area_ha,
         "rainfall":   w.get("rainfall",   weather.get("rainfall",   80.0)),
         "temp_mean":  w.get("temp_mean",  weather.get("temp_mean",  25.0)),

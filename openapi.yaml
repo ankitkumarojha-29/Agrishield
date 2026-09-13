@@ -3,7 +3,7 @@ info:
   title: AgriShield Integration API
   version: "1.0.0"
   description: >
-    Single source of truth for AgriShield (Smart VIT Hackathon 2026, PS SVH26007).
+    Single source of truth for AgriShield AI-Powered PMFBY Crop Insurance & Farm Risk Platform.
     Website, Flutter app, and AI service all build against this contract.
     Base URL: https://<integration-api>/api/v1
 servers:
@@ -438,3 +438,58 @@ paths:
       summary: Mark notification read
       parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
       responses: { '200': { description: OK } }
+
+  /mandi/crops:
+    get:
+      summary: List all Indian crops and Mandi commodities with bilingual English/Hindi names and benchmark MSP
+      responses: { '200': { description: OK } }
+
+  /mandi/soil-types:
+    get:
+      summary: List all 20+ Indian soil classifications with bilingual names, labels, and agronomic descriptions
+      responses: { '200': { description: OK } }
+
+  /mandi/price:
+    get:
+      summary: Get spot mandi price for a specific crop and state
+      parameters:
+        - in: query
+          name: crop
+          schema: { type: string, default: wheat }
+        - in: query
+          name: state
+          schema: { type: string, default: Madhya Pradesh }
+      responses: { '200': { description: OK } }
+
+  /mandi/arrivals:
+    get:
+      summary: Get multi-crop APMC arrivals and market spot prices with bilingual search
+      parameters:
+        - in: query
+          name: state
+          schema: { type: string, default: Madhya Pradesh }
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: force_refresh
+          schema: { type: boolean, default: false }
+      responses: { '200': { description: OK } }
+
+  /mandi/benchmarks:
+    get:
+      summary: Return official Government of India Minimum Support Price (MSP) benchmarks
+      responses: { '200': { description: OK } }
+
+  /mandi/regional-summary:
+    get:
+      summary: Get regional commodity spot rates & MSP benchmarks adapted to selected state
+      parameters:
+        - in: query
+          name: state
+          schema: { type: string, default: Madhya Pradesh }
+        - in: query
+          name: force_refresh
+          schema: { type: boolean, default: false }
+      responses: { '200': { description: OK } }
+

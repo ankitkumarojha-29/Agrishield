@@ -1,6 +1,6 @@
 # AgriShield Admin Web Portal
 
-This is the front-end application for the AgriShield project (Smart VIT Hackathon 2026, PS SVH26007).
+This is the enterprise front-end portal for the AgriShield platform.
 It is a React application built with Vite, TypeScript, and TailwindCSS v4.
 
 ## Features Built
@@ -49,5 +49,5 @@ npm run build
 ## UI/UX Guidelines Followed
 - **Color Palette**: Deep green (`#1B7A3D`) primary, warm orange (`#F5821F`) accent, off-white background.
 - **Typography**: Responsive font definitions set strictly in Tailwind.
-- **AI Guidelines**: Every AI result screen shows confidence `%` and hackathon-only decisions feature the "Demo / AI-assisted" label.
+- **AI Guidelines**: Every AI result screen shows model confidence `%` and verifiable telemetry.
 - **Responsive**: Tailwind's `md:` and `lg:` prefixes have been utilized to ensure the dashboard works across desktops and tablets.

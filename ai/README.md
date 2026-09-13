@@ -2,7 +2,7 @@
 
 AI-powered inference service for PMFBY crop insurance — crop health detection, damage assessment, yield prediction, risk scoring, soil OCR, and agricultural advisory.
 
-> **Hackathon**: Smart VIT 2026 — PS SVH26007  
+> **Platform**: AgriShield Enterprise PMFBY AI Architecture  
 > **Role**: AI Developer — owns `ai/` only. Never calls `backend/` directly.
 
 ---
@@ -417,4 +417,4 @@ All endpoint shapes are defined in `contracts/openapi.yaml`. Do not add new fiel
 
 ## License
 
-Proprietary — AgriShield Project 2026 (Smart VIT Hackathon)
+Proprietary — AgriShield Enterprise Platform 2026
