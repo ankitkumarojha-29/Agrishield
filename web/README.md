@@ -110,15 +110,16 @@ The output will be generated in the `dist/` directory.
 
 ### Deploy to Vercel
 
-The web portal includes a pre-configured `vercel.json` for single-page application (SPA) routing rewrites:
-
-```bash
-npx vercel --prod
-```
-
-Set the following environment variable in the Vercel Project Dashboard:
-- `VITE_API_BASE_URL`: `https://your-backend-domain.onrender.com/api/v1`
-- `VITE_DEMO_MODE`: `false`
+1. In [Vercel](https://vercel.com/new), import repository `ankitkumarojha-29/Agrishield`.
+2. Configure settings:
+   - **Framework Preset**: `Vite`
+   - **Root Directory**: Click Edit and select `web`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+3. Add Environment Variables:
+   - `VITE_API_BASE_URL`: `https://agrishield-backend.onrender.com/api/v1`
+   - `VITE_DEMO_MODE`: `false`
+4. Click **Deploy**. Vercel uses `web/vercel.json` for automatic API proxy rewrites and SPA client-side routing.
 
 ---
 
