@@ -19,3 +19,5 @@ httpx>=0.24.0
 
 alembic>=1.11.0
 web3>=6.0.0
+pymupdf>=1.24.0
+pypdf>=4.0.0

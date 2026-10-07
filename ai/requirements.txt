@@ -18,6 +18,8 @@ opencv-python>=4.8.0
 
 # ── OCR (soil report extraction) ──────────────────────────────────────────────
 easyocr>=1.7.0
+pymupdf>=1.24.0
+pypdf>=4.0.0
 
 # ── Satellite / geospatial ────────────────────────────────────────────────────
 sentinelhub>=3.9.0             # Copernicus / Sentinel-2 STAC access
