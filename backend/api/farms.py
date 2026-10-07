@@ -474,8 +474,8 @@ async def farm_crop_health(
                     "crop": crop,
                     "growth_stage": growth_stage,
                     "farm_name": farm.name if farm else "Field Scan",
-                    "diagnosis": result.get("diagnosis", "Healthy"),
-                    "disease": result.get("disease", result.get("diagnosis", "Healthy")),
+                    "diagnosis": result.get("label") or result.get("diagnosis", "Healthy"),
+                    "disease": result.get("label") or result.get("disease", "Healthy"),
                     "severity": result.get("severity", "LOW"),
                     "recommendations": result.get("recommendations", []),
                     "image_data_uri": data_uri

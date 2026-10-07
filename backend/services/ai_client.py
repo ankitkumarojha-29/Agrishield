@@ -205,7 +205,7 @@ class HttpAIClient(AIClient):
 
     async def get_soil_ocr(self, file_bytes: bytes, filename: str):
         try:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=self._headers) as client:
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True, headers=self._headers) as client:
                 r = await client.post(
                     f"{self.base_url}/v1/soil-ocr/",
                     files={"file": (filename, file_bytes, "application/octet-stream")},
