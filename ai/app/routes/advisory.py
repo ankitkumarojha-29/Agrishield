@@ -97,4 +97,3 @@ async def get_advisory(farm_context: dict = Body(...)):
         "low_confidence": False,
         "inference_ms": 2,
     }
-
