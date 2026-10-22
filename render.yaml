@@ -2,6 +2,7 @@ services:
   - type: web
     name: agrishield-backend
     runtime: python
+    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
@@ -12,6 +13,10 @@ services:
         sync: false
       - key: SECRET_KEY
         generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        value: 457777302036-jqf6jgt61aaggvhjrpsmlnti9vk8891p.apps.googleusercontent.com
+      - key: OTP_MODE
+        value: development
       - key: AI_SERVICE_URL
         sync: false
       - key: AI_MODE
@@ -26,3 +31,4 @@ services:
         sync: false
       - key: AGMARKNET_API_KEY
         sync: false
+
