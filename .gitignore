@@ -93,3 +93,7 @@ soil_health_card.png
 DEPLOYMENT_GUIDE.md
 *DEPLOYMENT*
 WHATSAPP_ENV_SETUP.md
+
+# Local infinityfree upload bundles
+htdocs/
+htdocs.zip
