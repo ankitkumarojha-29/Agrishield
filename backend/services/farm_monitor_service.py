@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +51,7 @@ async def notify_admins(
         return created_count
     except Exception as e:
         logger.error("Failed to notify admins: %s", e)
+        await db.rollback()
         return 0
 
 

@@ -182,6 +182,59 @@ paths:
       responses:
         '200': { description: new access_token }
 
+  /auth/google:
+    post:
+      summary: Authenticate via Google OAuth ID token (GIS)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_token]
+              properties:
+                id_token: { type: string }
+      responses:
+        '200': { description: Authenticated session or REQUIRES_PHONE_LINKING ticket }
+
+  /auth/google/link-phone:
+    post:
+      summary: Link verified Google account with farmer mobile number & OTP
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [linking_ticket, phone, otp]
+              properties:
+                linking_ticket: { type: string }
+                phone: { type: string }
+                otp: { type: string }
+                name: { type: string }
+      responses:
+        '200': { description: Authenticated session for linked farmer account }
+
+  /auth/google/link:
+    post:
+      summary: Link Google account to authenticated session in account settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_token]
+              properties:
+                id_token: { type: string }
+      responses:
+        '200': { description: Account linked successfully }
+
+  /auth/google/unlink:
+    post:
+      summary: Unlink Google account from authenticated session
+      responses:
+        '200': { description: Account unlinked successfully }
+
   /auth/me:
     get:
       summary: Current user + roles + preferences

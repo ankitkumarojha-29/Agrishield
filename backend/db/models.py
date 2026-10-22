@@ -60,7 +60,8 @@ class User(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone = Column(String, unique=True, index=True, nullable=True) # Farmer identity
-    email = Column(String, unique=True, index=True, nullable=True) # Admin identity
+    email = Column(String, unique=True, index=True, nullable=True) # User email (Admin or linked Google email)
+    google_id = Column(String, unique=True, index=True, nullable=True) # Google OAuth stable provider ID (sub)
     name = Column(String, nullable=True)
     role = Column(SQLEnum(UserRole), default=UserRole.FARMER)
     language = Column(String, default="en")

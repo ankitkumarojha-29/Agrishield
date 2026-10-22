@@ -17,11 +17,13 @@ import {
   Shield,
   Wind,
   Flame,
-  Snowflake
+  Snowflake,
+  Clock
 } from 'lucide-react';
 import { useUserRole } from '../context/RoleContext';
 import { api } from '../api';
 import { CROPS_CATALOG, fetchCropsCatalog, type CropInfo } from '../data/agriCatalog';
+import { formatFullNotificationTimestamp } from '../utils/dateUtils';
 
 export interface AlertItem {
   id: string;
@@ -33,6 +35,9 @@ export interface AlertItem {
   action_hi: string;
   action_en: string;
   timestamp: string;
+  date_formatted: string;
+  time_formatted: string;
+  duration_formatted: string;
   read: boolean;
 }
 
@@ -83,33 +88,55 @@ export default function Alerts() {
           let category: 'weather' | 'disease' | 'irrigation' | 'system' = n.category || 'weather';
           let severity: 'critical' | 'warning' | 'advisory' = n.severity || 'warning';
 
-          // Format relative or friendly timestamp
-          let timeDisplay = 'अभी (Just now)';
-          if (n.created_at) {
-            try {
-              const diffMs = Date.now() - new Date(n.created_at).getTime();
-              const diffMins = Math.floor(diffMs / 60000);
-              const diffHours = Math.floor(diffMins / 60);
-              const diffDays = Math.floor(diffHours / 24);
-              if (diffMins < 2) timeDisplay = 'अभी (Just now)';
-              else if (diffMins < 60) timeDisplay = `${diffMins} मिनट पहले (${diffMins}m ago)`;
-              else if (diffHours < 24) timeDisplay = `${diffHours} घंटे पहले (${diffHours}h ago)`;
-              else timeDisplay = `${diffDays} दिन पहले (${diffDays}d ago)`;
-            } catch (e) {
-              timeDisplay = 'हाल ही में';
-            }
+          // Compute exact local date, 12h time, and friendly duration
+          const ts = formatFullNotificationTimestamp(n.created_at);
+
+          const rawTitle = n.title || '';
+          const rawMsg = n.message || n.raw_message || '';
+          
+          // Friendly title mapping so raw system enums like POLICY_STATUS never appear
+          let cleanTitle = rawTitle.trim();
+          const lower = cleanTitle.toLowerCase();
+          const lowerMsg = rawMsg.toLowerCase();
+          if (lower.includes('welcome') || lowerMsg.includes('welcome') || lowerMsg.includes('स्वागत')) {
+            cleanTitle = '🎉 स्वागत (Welcome)';
+            category = 'system';
+            severity = 'advisory';
+          } else if (lower === 'policy_status' || lower === 'policy status') {
+            cleanTitle = '📋 खाता व योजना स्थिति (Policy Status)';
+          } else if (lower === 'system_alert') {
+            cleanTitle = '🔔 सिस्टम सूचना (System Notice)';
+          } else if (lower === 'weather_alert') {
+            cleanTitle = '🌦️ मौसम अलर्ट (Weather Alert)';
+          } else if (lower === 'risk_alert') {
+            cleanTitle = '⚠️ फसल जोखिम चेतावनी (Crop Risk Alert)';
+          } else if (lower === 'claim_status') {
+            cleanTitle = '📑 दावा स्थिति (Claim Status)';
           }
+
+          const isWelcome = cleanTitle.includes('स्वागत') || cleanTitle.includes('Welcome') || lowerMsg.includes('welcome');
 
           return {
             id: n.id,
             category,
             severity,
-            title: n.title || 'कृषि व मौसम अलर्ट',
-            threat_hi: n.threat_hi || n.message || 'खेत की स्थिति अद्यतित की गई है।',
-            threat_en: n.threat_en || 'Field and meteorological telemetry monitored.',
-            action_hi: n.action_hi || 'कृषि सलाह अनुसार आवश्यक कदम उठाएं।',
-            action_en: n.action_en || 'Follow agronomic advisory steps.',
-            timestamp: timeDisplay,
+            title: cleanTitle || 'कृषि व मौसम अलर्ट',
+            threat_hi: isWelcome
+              ? rawMsg.replace(/^(POLICY_STATUS|SYSTEM_ALERT|🎉 स्वागत \(Welcome\)):\s*/i, '')
+              : (n.threat_hi || rawMsg || 'खेत की स्थिति अद्यतित की गई है।').replace(/POLICY_STATUS/gi, 'योजना स्थिति'),
+            threat_en: isWelcome
+              ? 'Your AgriShield farmer identity and credentials are verified.'
+              : (n.threat_en || 'Field and meteorological telemetry monitored.').replace(/POLICY_STATUS/gi, 'Policy Status'),
+            action_hi: isWelcome
+              ? 'अपने खेत (GPS Boundaries) जोड़ें और वास्तविक समय सेटेलाइट निगरानी शुरू करें।'
+              : (n.action_hi || 'कृषि सलाह अनुसार आवश्यक कदम उठाएं।'),
+            action_en: isWelcome
+              ? 'Add your farm boundary to begin real-time satellite crop health monitoring.'
+              : (n.action_en || 'Follow agronomic advisory steps.').replace(/POLICY_STATUS/gi, 'Policy Status'),
+            timestamp: ts.display,
+            date_formatted: ts.date,
+            time_formatted: ts.time,
+            duration_formatted: ts.duration,
             read: !!n.is_read || !!n.read,
           };
         });
@@ -451,7 +478,13 @@ export default function Alerts() {
                       }`}>
                         {alert.severity === 'critical' ? 'गंभीर चेतावनी' : alert.severity === 'warning' ? 'मौसम व सिंचाई' : 'सलाह व रिपोर्ट'}
                       </span>
-                      <span className="text-[11px] text-slate-400 font-medium">• {alert.timestamp}</span>
+                      <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap">
+                        <Clock size={12} className="text-slate-400 shrink-0" />
+                        <span>{alert.date_formatted}, {alert.time_formatted}</span>
+                        <span className="text-emerald-800 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 text-[10px]">
+                          {alert.duration_formatted}
+                        </span>
+                      </span>
                       {!alert.read && (
                         <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded-md">
                           नया (Unread)

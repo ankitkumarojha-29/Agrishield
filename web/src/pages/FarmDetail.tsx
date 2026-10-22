@@ -66,6 +66,7 @@ export default function FarmDetail() {
   const [editIrrigationType, setEditIrrigationType] = useState('Borewell / Tube Well');
   const [savingEdit, setSavingEdit] = useState(false);
   const [editSuccessMsg, setEditSuccessMsg] = useState<string | null>(null);
+  const [editErrorMsg, setEditErrorMsg] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,15 +128,30 @@ export default function FarmDetail() {
     }
   };
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // SECTION: UPDATE FARM DETAILS AND MODAL SUBMISSION
+  // ──────────────────────────────────────────────────────────────────────────
   const handleSaveFarm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!farm) return;
+
+    const cleanName = editName.trim();
+    if (!cleanName || cleanName.length < 2) {
+      setEditErrorMsg('कृपया खेत का मान्य नाम दर्ज करें (कम से कम 2 अक्षर / Farm name must be at least 2 chars).');
+      return;
+    }
+    if (cleanName.length > 100) {
+      setEditErrorMsg('खेत का नाम 100 अक्षरों से अधिक नहीं हो सकता (Maximum 100 chars).');
+      return;
+    }
+
     setSavingEdit(true);
     setEditSuccessMsg(null);
+    setEditErrorMsg(null);
     try {
       const res = await api.updateFarm(farm.id, {
-        name: editName,
-        khasra_number: editKhasra,
+        name: cleanName,
+        khasra_number: editKhasra.trim() || undefined,
         crop: editCrop,
         sowing_date: editSowingDate || undefined,
         soil_type: editSoilType,
@@ -147,10 +163,13 @@ export default function FarmDetail() {
         setTimeout(() => {
           setIsEditModalOpen(false);
           setEditSuccessMsg(null);
+          setEditErrorMsg(null);
         }, 1200);
+      } else {
+        setEditErrorMsg(res.error?.message || 'Failed to update farm.');
       }
     } catch (err: any) {
-      alert("खेत सुधारने में त्रुटि: " + (err.message || 'Error updating farm'));
+      setEditErrorMsg(err.response?.data?.error?.message || err.message || 'खेत सुधारने में त्रुटि आई।');
     } finally {
       setSavingEdit(false);
     }
@@ -704,6 +723,13 @@ export default function FarmDetail() {
                 <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2 font-semibold">
                   <CheckCircle2 size={16} className="shrink-0" />
                   <span>{editSuccessMsg}</span>
+                </div>
+              )}
+
+              {editErrorMsg && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2 font-semibold">
+                  <AlertTriangle size={16} className="shrink-0" />
+                  <span>{editErrorMsg}</span>
                 </div>
               )}
 

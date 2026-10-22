@@ -63,7 +63,7 @@ def _serialize_farm(f: Farm, include_farmer=False) -> dict:
         "name": f.name,
         "khasra_number": getattr(f, "khasra_number", None),
         "crop": f.crop,
-        "sowing_date": f.sowing_date.date().isoformat() if f.sowing_date else None,
+        "sowing_date": (f.sowing_date.date().isoformat() if hasattr(f.sowing_date, "date") else f.sowing_date.isoformat().split("T")[0]) if f.sowing_date else None,
         "soil_type": getattr(f, "soil_type", None) or "Medium Black (Loam)",
         "irrigation_type": getattr(f, "irrigation_type", None) or "Borewell / Tube Well",
         "area_m2": f.area_m2,
@@ -79,11 +79,33 @@ def _serialize_farm(f: Farm, include_farmer=False) -> dict:
         data["farmer"] = {
             "id": str(f.owner.id),
             "name": f.owner.name,
-            "phone": f.owner.phone
+            "phone": f.owner.phone,
+            "email": f.owner.email
         }
         
     return data
 
+# SECTION: FARM ACCESS CONTROL HELPERS
+async def _get_farm_or_404(farm_id: str, db: AsyncSession, user: User):
+    """
+    Retrieves farm parcel and enforces strict tenant ownership access control.
+    Farmers can only access their own farms. Admins can view any registered farm.
+    """
+    try:
+        farm_uuid = uuid.UUID(farm_id)
+    except (ValueError, TypeError):
+        return _error("VALIDATION_ERROR", "Invalid UUID")
+    
+    farm = await db.get(Farm, farm_uuid)
+    if not farm:
+        return _error("FARM_NOT_FOUND", "Farm not found", 404)
+        
+    if user.role != UserRole.ADMIN and farm.user_id != user.id:
+        return _error("FORBIDDEN", "Not allowed to access this farm", 403)
+        
+    return farm
+
+# SECTION: FARM INVENTORY AND REGISTRATION
 class CreateFarmRequest(BaseModel):
     name: str
     crop: Optional[str] = None
@@ -400,27 +422,18 @@ class BoundaryCheckRequest(BaseModel):
     boundary: GeoPolygon
 
 @router.post("/{farm_id}/validate-boundary", response_model=PolygonValidationResult)
-async def check_boundary(farm_id: str, req: BoundaryCheckRequest):
+async def check_boundary(
+    farm_id: str, 
+    req: BoundaryCheckRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Validates farm polygon geometry for self-intersection, vertex count, and acreage limits."""
     return validate_farm_boundary(req.boundary)
 
 
-# ─── AI PROXY ROUTES ────────────────────────────────────────────────────────
-
-async def _get_farm_or_404(farm_id: str, db: AsyncSession, user: User):
-    try:
-        farm_uuid = uuid.UUID(farm_id)
-    except ValueError:
-        return _error("VALIDATION_ERROR", "Invalid UUID")
-    
-    farm = await db.get(Farm, farm_uuid)
-    if not farm:
-        return _error("FARM_NOT_FOUND", "Farm not found", 404)
-        
-    if user.role != UserRole.ADMIN and farm.user_id != user.id:
-        return _error("FORBIDDEN", "Not allowed to access this farm", 403)
-        
-    return farm
-
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION: CROP HEALTH AI DIAGNOSTICS
+# ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/{farm_id}/crop-health")
 async def farm_crop_health(
@@ -446,6 +459,8 @@ async def farm_crop_health(
         
     try:
         image_bytes = await image.read()
+        if len(image_bytes) > 15 * 1024 * 1024:
+            return _error("FILE_INVALID", "Uploaded leaf image exceeds maximum allowed limit of 15 MB", 400)
         ai = get_ai_client()
         result = await ai.get_crop_health(image_bytes, crop, growth_stage)
 
@@ -657,6 +672,8 @@ async def farm_soil_analyze(
 
     try:
         file_bytes = await file.read()
+        if len(file_bytes) > 15 * 1024 * 1024:
+            return _error("FILE_INVALID", "Uploaded soil document exceeds maximum allowed limit of 15 MB", 400)
         ai = get_ai_client()
         result = await ai.get_soil_ocr(file_bytes, file.filename or "soil_report")
 
@@ -757,18 +774,12 @@ async def farm_weather_current(
     irrigation_type = "Tubewell"
 
     if farm_id not in ("demo", "general", "sample", "default"):
-        if current_user:
-            farm_obj = await _get_farm_or_404(farm_id, db, current_user)
-            if isinstance(farm_obj, Farm):
-                farm = farm_obj
-        else:
-            try:
-                f_uuid = uuid.UUID(farm_id)
-                stmt = select(Farm).where(Farm.id == f_uuid)
-                res = await db.execute(stmt)
-                farm = res.scalar_one_or_none()
-            except Exception:
-                pass
+        if not current_user:
+            return _error("AUTH_REQUIRED", "Login required to view weather for registered farm parcels", 401)
+        farm_obj = await _get_farm_or_404(farm_id, db, current_user)
+        if not isinstance(farm_obj, Farm):
+            return farm_obj
+        farm = farm_obj
 
     if farm:
         crop = farm.crop or "Wheat"
@@ -824,38 +835,29 @@ async def farm_weather_current(
     return _ok(weather)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION: IRRIGATION AND WEATHER ALERTS
+# ─────────────────────────────────────────────────────────────────────────────
+
 @router.post("/{farm_id}/irrigation/notify")
 async def send_irrigation_notification(
     farm_id: str,
     payload: Optional[dict] = Body(None),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Explicitly trigger or broadcast an irrigation/weather notification to the farmer.
+    Enforces authorization: only the farm owner or an administrator can dispatch alerts.
     """
-    target_user_id = None
+    target_user_id = current_user.id
     farm_ref_id = None
 
     if farm_id not in ("demo", "general", "sample"):
-        try:
-            f_uuid = uuid.UUID(farm_id)
-            f_res = await db.execute(select(Farm).where(Farm.id == f_uuid))
-            farm = f_res.scalar_one_or_none()
-            if farm:
-                target_user_id = farm.user_id
-                farm_ref_id = farm.id
-        except Exception:
-            pass
-
-    if not target_user_id and current_user:
-        target_user_id = current_user.id
-
-    if not target_user_id:
-        u_res = await db.execute(select(User).limit(1))
-        u = u_res.scalar_one_or_none()
-        if u:
-            target_user_id = u.id
+        farm = await _get_farm_or_404(farm_id, db, current_user)
+        if isinstance(farm, Farm):
+            target_user_id = farm.user_id
+            farm_ref_id = farm.id
 
     if not target_user_id:
         return _error("USER_NOT_FOUND", "No farmer account available to receive alert", 404)

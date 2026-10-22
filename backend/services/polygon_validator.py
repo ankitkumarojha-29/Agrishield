@@ -11,6 +11,17 @@ def validate_farm_boundary(geo_polygon: GeoPolygon) -> PolygonValidationResult:
     
     if len(ring) < 4:
         return PolygonValidationResult(valid=False, reason=PolygonValidationResultReason.TOO_FEW_VERTICES, area_m2=0.0)
+    
+    # Verify all vertices are valid WGS84 geographic coordinates
+    for pt in ring:
+        if not isinstance(pt, (list, tuple)) or len(pt) < 2:
+            return PolygonValidationResult(valid=False, reason=PolygonValidationResultReason.TOO_FEW_VERTICES, area_m2=0.0)
+        try:
+            lon, lat = float(pt[0]), float(pt[1])
+            if not (-180.0 <= lon <= 180.0 and -90.0 <= lat <= 90.0):
+                return PolygonValidationResult(valid=False, reason=PolygonValidationResultReason.TOO_FEW_VERTICES, area_m2=0.0)
+        except (ValueError, TypeError):
+            return PolygonValidationResult(valid=False, reason=PolygonValidationResultReason.TOO_FEW_VERTICES, area_m2=0.0)
         
     if ring[0] != ring[-1]:
         return PolygonValidationResult(valid=False, reason=PolygonValidationResultReason.NOT_CLOSED, area_m2=0.0)

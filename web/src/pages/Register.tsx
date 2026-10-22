@@ -2,6 +2,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useState } from 'react';
 import { api } from '../api';
 import { ShieldCheck, Mail, Lock, User, Clock, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { validatePersonName, validateEmail, validatePassword } from '../utils/validators';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -13,13 +14,37 @@ export default function Register() {
   const [submitted, setSubmitted] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // SECTION: ADMINISTRATOR REGISTRATION APPLICATION
+  // ──────────────────────────────────────────────────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    const nameValidation = validatePersonName(name, true);
+    if (!nameValidation.isValid) {
+      setError(nameValidation.error || 'कृपया पूरा नाम दर्ज करें (Invalid name).');
+      setLoading(false);
+      return;
+    }
+
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      setError(emailValidation.error || 'कृपया सही ईमेल पता दर्ज करें (Invalid email).');
+      setLoading(false);
+      return;
+    }
+
+    const passwordValidation = validatePassword(password, 6);
+    if (!passwordValidation.isValid) {
+      setError(passwordValidation.error || 'पासवर्ड कम से कम 6 अक्षरों का होना चाहिए (At least 6 characters).');
+      setLoading(false);
+      return;
+    }
     
     try {
-      const res = await api.register({ email: email.trim(), name: name.trim(), password });
+      const res = await api.register({ email: email.trim().toLowerCase(), name: nameValidation.cleaned, password });
       
       if (res && res.data) {
         setSubmitted(true);

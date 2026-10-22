@@ -3,7 +3,7 @@ import uuid
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 
 from db.session import get_db
 from db.models import Notification, User, UserRole, NotificationType
@@ -14,63 +14,93 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+TYPE_FRIENDLY_TITLES = {
+    "POLICY_STATUS": "📋 खाता व योजना स्थिति (Account & Policy)",
+    "CLAIM_STATUS": "📑 दावा स्थिति (Claim Status)",
+    "WEATHER_ALERT": "🌦️ मौसम अलर्ट (Weather Alert)",
+    "RISK_ALERT": "⚠️ फसल जोखिम चेतावनी (Crop Risk Alert)",
+    "SYSTEM_ALERT": "🔔 सिस्टम सूचना (System Notice)",
+}
+
+
 def _parse_notification(n: Notification) -> dict:
     """Helper to parse raw notification message into rich bilingual structure."""
-    raw_msg = n.message or ""
-    title = n.type.value if hasattr(n.type, "value") else str(n.type)
+    raw_msg = (n.message or "").strip()
+    n_type_raw = n.type.value if hasattr(n.type, "value") else str(n.type or "")
+    
+    title = TYPE_FRIENDLY_TITLES.get(n_type_raw, "🔔 कृषि सूचना (Agri Notice)")
     body = raw_msg
     
-    if ": " in raw_msg:
-        parts = raw_msg.split(": ", 1)
-        title = parts[0].strip()
-        body = parts[1].strip()
+    # Strip any literal raw prefix like "POLICY_STATUS: " or "SYSTEM_ALERT: "
+    for prefix in ["POLICY_STATUS:", "policy_status:", "SYSTEM_ALERT:", "WEATHER_ALERT:", "RISK_ALERT:"]:
+        if body.startswith(prefix):
+            body = body[len(prefix):].strip()
+
+    if ": " in body:
+        parts = body.split(": ", 1)
+        # Only treat before colon as title if it is not an ugly uppercase enum
+        first_part = parts[0].strip()
+        if first_part.upper() not in TYPE_FRIENDLY_TITLES:
+            title = first_part
+            body = parts[1].strip()
+
+    is_welcome = "welcome" in raw_msg.lower() or "स्वागत" in raw_msg
 
     # Determine severity
-    severity = "warning"
+    severity = "advisory" if is_welcome else "warning"
     if any(k in title for k in ["बाढ़", "Flood", "चक्रवात", "Cyclone", "पाला", "Frost", "गंभीर", "Critical", "रतुआ", "Yellow Rust"]):
         severity = "critical"
     elif any(k in title for k in ["सिंचाई", "Irrigation", "गर्मी", "Heat", "हवा", "Wind"]):
         severity = "warning"
-    elif any(k in title for k in ["रिपोर्ट", "Report", "पंजीकरण", "Registered", "अनुरोध", "Request", "दावा", "Claim"]):
+    elif any(k in title for k in ["रिपोर्ट", "Report", "पंजीकरण", "Registered", "अनुरोध", "Request", "दावा", "Claim", "स्वागत", "Welcome"]):
         severity = "advisory"
 
     # Determine category
-    category = "weather"
+    category = "system" if is_welcome else "weather"
     if any(k in title for k in ["सिंचाई", "Irrigation", "नमी", "Moisture"]):
         category = "irrigation"
     elif any(k in title for k in ["कीट", "फफूंद", "Disease", "रतुआ", "Rust", "NDVI"]):
         category = "disease"
-    elif any(k in title for k in ["पंजीकरण", "व्यवस्थापक", "Admin", "दावा", "Claim", "रिपोर्ट"]):
+    elif any(k in title for k in ["पंजीकरण", "व्यवस्थापक", "Admin", "दावा", "Claim", "रिपोर्ट", "खाता", "Account", "स्वागत", "Welcome"]):
         category = "system"
 
-    # Split into Threat description and Action if available
-    threat_hi = body
-    action_hi = "कृषि व मौसम सलाह अनुसार सावधानी बरतें।"
-
-    action_markers = ["कदम:", "करें:", "सलाह:", "करें।", "रखें।", "चलाएं।"]
-    for marker in action_markers:
-        if marker in body:
-            parts = body.split(marker, 1)
-            threat_hi = parts[0] + (marker if not marker.endswith(("।", ":")) else "")
-            action_hi = parts[1].strip()
-            break
+    # Friendly bilingual action and risk texts
+    if is_welcome:
+        title = "🎉 स्वागत (Welcome)"
+        threat_hi = body
+        threat_en = "Your AgriShield farmer identity and credentials are verified."
+        action_hi = "अपने खेत (GPS Boundaries) जोड़ें और वास्तविक समय सेटेलाइट निगरानी शुरू करें।"
+        action_en = "Add your farm boundary to begin real-time satellite crop health monitoring."
+    else:
+        threat_hi = body
+        action_hi = "कृषि व मौसम सलाह अनुसार सावधानी बरतें।"
+        action_markers = ["कदम:", "करें:", "सलाह:", "करें।", "रखें।", "चलाएं।"]
+        for marker in action_markers:
+            if marker in body:
+                parts = body.split(marker, 1)
+                threat_hi = parts[0] + (marker if not marker.endswith(("।", ":")) else "")
+                action_hi = parts[1].strip()
+                break
+        clean_title = title.replace("POLICY_STATUS", "योजना स्थिति").replace("policy_status", "")
+        threat_en = f"Agricultural advisory update: {clean_title}"
+        action_en = "Follow the specified agronomic advisory guidelines."
 
     return {
         "id": str(n.id),
-        "type": n.type.value if hasattr(n.type, "value") else str(n.type),
+        "type": n_type_raw,
         "title": title,
         "message": body,
         "raw_message": raw_msg,
         "threat_hi": threat_hi,
-        "threat_en": f"Agricultural advisory update: {title}",
+        "threat_en": threat_en,
         "action_hi": action_hi,
-        "action_en": "Follow the specified agronomic advisory guidelines.",
+        "action_en": action_en,
         "severity": severity,
         "category": category,
         "ref_id": str(n.ref_id) if n.ref_id else None,
         "is_read": n.read,
         "read": n.read,
-        "created_at": n.created_at.isoformat() if n.created_at else None,
+        "created_at": (n.created_at.isoformat() + "Z") if n.created_at and not n.created_at.isoformat().endswith("Z") and "+" not in n.created_at.isoformat() else (n.created_at.isoformat() if n.created_at else None),
     }
 
 
@@ -137,14 +167,16 @@ async def mark_all_notifications_read(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Marks all notifications for current user as read."""
-    stmt = select(Notification).where(Notification.user_id == current_user.id, Notification.read == False)
+    """Marks all notifications for current user as read atomically."""
+    stmt = (
+        update(Notification)
+        .where(Notification.user_id == current_user.id, Notification.read == False)
+        .values(read=True)
+    )
     res = await db.execute(stmt)
-    unread_notifs = res.scalars().all()
-    for n in unread_notifs:
-        n.read = True
     await db.commit()
-    return _ok({"marked_count": len(unread_notifs)})
+    marked_count = res.rowcount if hasattr(res, "rowcount") and res.rowcount is not None else 0
+    return _ok({"marked_count": marked_count})
 
 
 @router.delete("/{id}")

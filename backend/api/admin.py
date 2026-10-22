@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query, HTTPException
@@ -21,7 +21,7 @@ def _ok(data: any):
     return {
         "success": True,
         "data": data,
-        "meta": {"request_id": str(uuid.uuid4()), "timestamp": datetime.utcnow().isoformat()},
+        "meta": {"request_id": str(uuid.uuid4()), "timestamp": datetime.now(timezone.utc).isoformat()},
         "error": None
     }
 
@@ -29,9 +29,13 @@ def _error(code: str, message: str, status_code: int = 400):
     raise HTTPException(status_code=status_code, detail={
         "success": False,
         "data": None,
-        "meta": {"request_id": str(uuid.uuid4()), "timestamp": datetime.utcnow().isoformat()},
+        "meta": {"request_id": str(uuid.uuid4()), "timestamp": datetime.now(timezone.utc).isoformat()},
         "error": {"code": code, "message": message}
     })
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION: ADMIN BROADCAST AND STATS
+# ─────────────────────────────────────────────────────────────────────────────
 
 class BroadcastAlertRequest(BaseModel):
     title: str
@@ -128,7 +132,9 @@ async def get_farmers(
         "created_at": f.created_at.isoformat() if f.created_at else datetime.utcnow().isoformat(),
         "farm_count": len(f.farms),
         "total_area_ha": round(sum((farm.area_m2 or 0) for farm in f.farms) / 10000.0, 2),
-        "crops": list({farm.crop for farm in f.farms if farm.crop})
+        "crops": list({farm.crop for farm in f.farms if farm.crop}),
+        "farm_names": [farm.name for farm in f.farms if farm.name],
+        "khasra_numbers": [farm.khasra_number for farm in f.farms if farm.khasra_number]
     } for f in farmers])
 
 @router.get("/farmers/{farmer_id}/farms")
@@ -142,15 +148,18 @@ async def get_farmer_farms(
     except ValueError:
         return _error("VALIDATION_ERROR", "Invalid farmer UUID")
 
-    stmt = select(Farm).where(Farm.user_id == f_uuid)
+    stmt = select(Farm).where(Farm.user_id == f_uuid).order_by(Farm.created_at.desc())
     result = await db.execute(stmt)
     farms = result.scalars().all()
 
     return _ok([{
         "id": str(f.id),
         "name": f.name,
+        "khasra_number": getattr(f, "khasra_number", None),
         "crop": f.crop,
-        "sowing_date": f.sowing_date.isoformat() if f.sowing_date else None,
+        "sowing_date": (f.sowing_date.date().isoformat() if hasattr(f.sowing_date, "date") else f.sowing_date.isoformat().split("T")[0]) if f.sowing_date else None,
+        "soil_type": getattr(f, "soil_type", None) or "Medium Black Loam",
+        "irrigation_type": getattr(f, "irrigation_type", None) or "Borewell",
         "area_m2": f.area_m2,
         "area_ha": round((f.area_m2 or 0) / 10000.0, 2),
         "status": f.status.value,
@@ -241,7 +250,7 @@ async def get_farmer_overview(
             "name": f.name,
             "khasra_number": getattr(f, "khasra_number", None),
             "crop": f.crop or "Unsown",
-            "sowing_date": f.sowing_date.isoformat() if f.sowing_date else None,
+            "sowing_date": (f.sowing_date.date().isoformat() if hasattr(f.sowing_date, "date") else f.sowing_date.isoformat().split("T")[0]) if f.sowing_date else None,
             "soil_type": getattr(f, "soil_type", None) or "Medium Black (Loam)",
             "irrigation_type": getattr(f, "irrigation_type", None) or "Borewell / Tube Well",
             "area_m2": f.area_m2,
@@ -290,6 +299,13 @@ async def broadcast_alert(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user)
 ):
+    clean_title = (req.title or "").strip()
+    clean_msg = (req.message or "").strip()
+    if len(clean_title) < 3 or len(clean_title) > 120:
+        return _error("VALIDATION_ERROR", "Broadcast title must be between 3 and 120 characters", 400)
+    if len(clean_msg) < 5 or len(clean_msg) > 1000:
+        return _error("VALIDATION_ERROR", "Broadcast message must be between 5 and 1000 characters", 400)
+
     # Fetch all registered farmers
     farmers_res = await db.execute(select(User).where(User.role == UserRole.FARMER))
     farmers = farmers_res.scalars().all()
@@ -299,7 +315,7 @@ async def broadcast_alert(
         notif = Notification(
             user_id=f.id,
             type=NotificationType.WEATHER_ALERT if req.severity in ("critical", "warning") else NotificationType.RISK_ALERT,
-            message=f"[{req.title}] {req.message}"
+            message=f"[{clean_title}] {clean_msg}"
         )
         db.add(notif)
         created_count += 1
@@ -309,5 +325,5 @@ async def broadcast_alert(
         "broadcast_success": True,
         "recipients_count": created_count,
         "title": req.title,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     })

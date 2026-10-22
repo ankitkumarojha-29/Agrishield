@@ -137,6 +137,7 @@ export default function Revenue() {
   useEffect(() => {
     loadRegionalCrops(selectedState, false);
     loadMandiData(selectedState, searchQuery, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedState]);
 
   const loadFarms = async () => {

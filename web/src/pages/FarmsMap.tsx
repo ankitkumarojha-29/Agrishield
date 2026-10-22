@@ -10,7 +10,11 @@ import {
   MapPin, 
   ChevronRight,
   Crosshair,
-  Users
+  Users,
+  Search,
+  X,
+  User as UserIcon,
+  FileText
 } from 'lucide-react';
 import { useUserRole } from '../context/RoleContext';
 
@@ -40,6 +44,7 @@ export default function FarmsMap() {
   const [locateLoading, setLocateLoading] = useState(false);
   const [selectedFarmId, setSelectedFarmId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadFarms();
@@ -109,6 +114,19 @@ export default function FarmsMap() {
       </div>
     );
   }
+
+  const filteredFarms = farms.filter((farm) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      farm.name.toLowerCase().includes(q) ||
+      (farm.khasra_number && farm.khasra_number.toLowerCase().includes(q)) ||
+      (farm.crop && farm.crop.toLowerCase().includes(q)) ||
+      (farm.farmer?.name && farm.farmer.name.toLowerCase().includes(q)) ||
+      (farm.farmer?.phone && farm.farmer.phone.toLowerCase().includes(q)) ||
+      (farm.farmer?.email && farm.farmer.email.toLowerCase().includes(q))
+    );
+  });
 
   const defaultCenter: [number, number] = [23.2599, 77.4126];
 
@@ -206,7 +224,7 @@ export default function FarmsMap() {
             </div>
 
             <span className="text-[11px] text-emerald-400 font-semibold bg-white/10 px-2.5 py-1 rounded-md">
-              कुल खेत: {farms.length}
+              {searchQuery ? `खेत: ${filteredFarms.length}/${farms.length}` : `कुल खेत: ${farms.length}`}
             </span>
           </div>
 
@@ -244,7 +262,7 @@ export default function FarmsMap() {
                 />
               )}
 
-              {farms.map((farm) => {
+              {filteredFarms.map((farm) => {
                 let position: [number, number] | null = null;
                 let leafletCoords: [number, number][] | null = null;
 
@@ -278,6 +296,12 @@ export default function FarmsMap() {
                       <Popup>
                         <div className="p-1 min-w-[210px] text-xs">
                           <h3 className="font-bold text-sm text-slate-900 mb-1">{farm.name}</h3>
+                          {farm.khasra_number && (
+                            <p className="mb-0.5 text-emerald-800 font-semibold">खसरा: <strong>#{farm.khasra_number}</strong></p>
+                          )}
+                          {farm.farmer && (
+                            <p className="mb-0.5 text-sky-800">किसान: <strong>{farm.farmer.name || 'Farmer'}</strong> ({farm.farmer.phone})</p>
+                          )}
                           <p>फसल: <strong className="text-emerald-700">{farm.crop || 'गेहूं (Wheat)'}</strong></p>
                           <p>क्षेत्रफल: <strong>{((farm.area_m2 / 10000) * 2.47105).toFixed(2)} एकड़</strong> ({(farm.area_m2 / 10000).toFixed(2)} ha)</p>
                           <Link 
@@ -296,63 +320,146 @@ export default function FarmsMap() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Farm Cards List (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col gap-3 max-h-[580px] overflow-y-auto pr-1">
-          {farms.length === 0 ? (
-            <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl">
-              <p className="text-slate-500 text-sm mb-3">अभी तक कोई खेत नहीं जुड़ा है (No farms registered yet).</p>
-              <Link to="/add-farm" className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold">
-                पहला खेत जोड़ें (Add First Farm)
-              </Link>
-            </div>
-          ) : (
-            farms.map((farm) => {
-              const areaHa = (farm.area_m2 / 10000).toFixed(2);
-              const areaAcres = ((farm.area_m2 / 10000) * 2.47105).toFixed(2);
-              const areaBigha = ((farm.area_m2 / 10000) * 4.0).toFixed(2);
-              const isSelected = farm.id === selectedFarmId;
-
-              return (
-                <div 
-                  key={farm.id}
-                  onClick={() => handleSelectFarm(farm)}
-                  className={`cursor-pointer rounded-2xl p-4.5 transition-all border ${
-                    isSelected 
-                      ? 'bg-emerald-50/50 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20' 
-                      : 'bg-white border-slate-200/80 hover:border-emerald-300 hover:shadow-xs'
-                  }`}
+        {/* RIGHT COLUMN: Farm Cards List with Search Filter (5 cols) */}
+        <div className="lg:col-span-5 flex flex-col gap-3">
+          {/* Farm Search Bar */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  const q = e.target.value.toLowerCase().trim();
+                  if (q) {
+                    const match = farms.find(f => 
+                      f.name.toLowerCase().includes(q) || 
+                      (f.khasra_number && f.khasra_number.toLowerCase().includes(q)) ||
+                      (f.farmer?.name && f.farmer.name.toLowerCase().includes(q)) ||
+                      (f.farmer?.phone && f.farmer.phone.toLowerCase().includes(q))
+                    );
+                    if (match) handleSelectFarm(match);
+                  }
+                }}
+                placeholder={role === 'admin' 
+                  ? "खसरा नंबर, खेत का नाम या किसान से खोजें..." 
+                  : "खसरा नंबर या खेत के नाम से खोजें (Search khasra # or name)..."}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-8 text-xs md:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200"
                 >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div>
-                      <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-1.5">
-                        {farm.name}
-                        {isSelected && <span className="text-xs text-emerald-600 font-bold">📍 चयनित</span>}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                        <MapPin size={13} className="text-slate-400" />
-                        <span>रकबा: <strong className="text-slate-800">{areaAcres} एकड़</strong> ({areaBigha} बीघा &bull; {areaHa} ha)</span>
-                      </p>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
+              <span>
+                दिखा रहे हैं / Showing: <strong className="text-slate-900 font-bold">{filteredFarms.length}</strong> of <strong className="text-slate-900 font-bold">{farms.length}</strong> खेत
+              </span>
+              {searchQuery && (
+                <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  फ़िल्टर सक्रिय
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-1">
+            {farms.length === 0 ? (
+              <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl">
+                <p className="text-slate-500 text-sm mb-3">अभी तक कोई खेत नहीं जुड़ा है (No farms registered yet).</p>
+                <Link to="/add-farm" className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold">
+                  पहला खेत जोड़ें (Add First Farm)
+                </Link>
+              </div>
+            ) : filteredFarms.length === 0 ? (
+              <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl space-y-2">
+                <FileText size={32} className="text-slate-300 mx-auto mb-1" />
+                <p className="text-slate-700 font-bold text-sm">कोई खेत नहीं मिला (No farms found)</p>
+                <p className="text-slate-400 text-xs">खसरा नंबर "{searchQuery}" या नाम से कोई खेत मेल नहीं खाता।</p>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="mt-2 text-xs font-bold text-emerald-700 hover:underline"
+                >
+                  फ़िल्टर हटाएं (Reset Search)
+                </button>
+              </div>
+            ) : (
+              filteredFarms.map((farm) => {
+                const areaHa = (farm.area_m2 / 10000).toFixed(2);
+                const areaAcres = ((farm.area_m2 / 10000) * 2.47105).toFixed(2);
+                const areaBigha = ((farm.area_m2 / 10000) * 4.0).toFixed(2);
+                const isSelected = farm.id === selectedFarmId;
+
+                return (
+                  <div 
+                    key={farm.id}
+                    onClick={() => handleSelectFarm(farm)}
+                    className={`cursor-pointer rounded-2xl p-4 transition-all border ${
+                      isSelected 
+                        ? 'bg-emerald-50/50 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20' 
+                        : 'bg-white border-slate-200/80 hover:border-emerald-300 hover:shadow-xs'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-1.5 truncate">
+                          {farm.name}
+                          {isSelected && <span className="text-xs text-emerald-600 font-bold shrink-0">📍 चयनित</span>}
+                        </h3>
+
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          {farm.khasra_number ? (
+                            <span className="text-[11px] font-bold text-emerald-900 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-300">
+                              खसरा #{farm.khasra_number}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                              खसरा: N/A
+                            </span>
+                          )}
+
+                          {farm.farmer && (
+                            <span className="text-[11px] text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200 font-semibold flex items-center gap-1 truncate">
+                              <UserIcon size={11} className="shrink-0" />
+                              <span className="truncate">{farm.farmer.name || 'Farmer'} ({farm.farmer.phone})</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
+                          <MapPin size={13} className="text-slate-400 shrink-0" />
+                          <span>रकबा: <strong className="text-slate-800">{areaAcres} एकड़</strong> ({areaBigha} बीघा &bull; {areaHa} ha)</span>
+                        </p>
+                      </div>
+
+                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                        {farm.crop || 'गेहूं (Wheat)'}
+                      </span>
                     </div>
 
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                      {farm.crop || 'गेहूं (Wheat)'}
-                    </span>
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
+                      <Link
+                        to={`/farms/${farm.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl text-center transition-colors flex items-center justify-center gap-1 shadow-xs"
+                      >
+                        <span>खेत का विवरण देखें (View Intelligence)</span>
+                        <ChevronRight size={14} />
+                      </Link>
+                    </div>
                   </div>
-
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
-                    <Link
-                      to={`/farms/${farm.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl text-center transition-colors flex items-center justify-center gap-1 shadow-xs"
-                    >
-                      <span>खेत का विवरण देखें (View Intelligence)</span>
-                      <ChevronRight size={14} />
-                    </Link>
-                  </div>
-                </div>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </div>

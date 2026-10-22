@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   ScanLine, 
   UploadCloud, 
   CheckCircle2, 
   AlertTriangle, 
   Sparkles, 
-  RefreshCw,
+  RefreshCw, 
   Camera
 } from 'lucide-react';
 import { api } from '../api';
@@ -23,9 +23,24 @@ export default function CropScan() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if (file.size > 15 * 1024 * 1024) {
+        setError('फोटो का आकार 15 MB से कम होना चाहिए (Photo size must not exceed 15 MB).');
+        return;
+      }
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setResult(null);

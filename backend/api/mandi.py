@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, Depends
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,7 +31,7 @@ async def get_crop_mandi_price(
     return Envelope(
         success=True,
         data=data,
-        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.utcnow()),
+        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.now(timezone.utc)),
         error=None
     )
 
@@ -51,7 +51,7 @@ async def get_mandi_arrivals(
     return Envelope(
         success=True,
         data=arrivals,
-        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.utcnow()),
+        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.now(timezone.utc)),
         error=None
     )
 
@@ -64,7 +64,7 @@ async def get_msp_benchmarks():
     return Envelope(
         success=True,
         data=benchmarks,
-        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.utcnow()),
+        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.now(timezone.utc)),
         error=None
     )
 
@@ -81,7 +81,7 @@ async def get_regional_mandi_summary_endpoint(
     return Envelope(
         success=True,
         data=data,
-        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.utcnow()),
+        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.now(timezone.utc)),
         error=None
     )
 
@@ -95,7 +95,7 @@ async def get_mandi_crops():
     return Envelope(
         success=True,
         data=crops,
-        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.utcnow()),
+        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.now(timezone.utc)),
         error=None
     )
 
@@ -109,7 +109,7 @@ async def get_soil_types():
     return Envelope(
         success=True,
         data=soil_types,
-        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.utcnow()),
+        meta=EnvelopeMeta(request_id=uuid.uuid4(), timestamp=datetime.now(timezone.utc)),
         error=None
     )
 

@@ -8,8 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Import the database session and models
-from db.models import User, Farm, InsurancePolicy, Claim, FarmStatus, PolicyStatus, ClaimStatus
+from db.models import User, Farm, InsurancePolicy, Claim, FarmStatus, PolicyStatus, ClaimStatus, ClaimEventType
 from core.security import get_password_hash
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
@@ -89,20 +88,20 @@ async def seed():
                 id=uuid.uuid4(),
                 user_id=user.id,
                 farm_id=f1.id,
-                premium_amount=random.uniform(500, 2000),
-                coverage_amount=random.uniform(20000, 100000),
+                premium=round(random.uniform(500, 2000), 2),
+                sum_insured=round(random.uniform(20000, 100000), 2),
                 status=PolicyStatus.ACTIVE
             )
             c1 = Claim(
                 id=uuid.uuid4(),
                 farm_id=f1.id,
                 policy_id=p1.id,
-                incident_date=datetime.utcnow() - timedelta(days=5),
-                event_type=random.choice(["Drought", "Flooding", "Pest Infestation"]),
+                user_id=user.id,
+                event_type=ClaimEventType.DROUGHT,
                 description="Crop damaged due to extreme weather.",
                 status=ClaimStatus.SUBMITTED,
-                damage_pct=random.uniform(30.0, 80.0),
-                ai_confidence=random.uniform(0.7, 0.95)
+                damage_pct=round(random.uniform(30.0, 80.0), 2),
+                ai_confidence=round(random.uniform(0.7, 0.95), 2)
             )
             all_farms.append(f1)
             all_policies.append(p1)
@@ -136,8 +135,8 @@ async def seed():
                 id=uuid.uuid4(),
                 user_id=user.id,
                 farm_id=f3.id,
-                premium_amount=random.uniform(500, 2000),
-                coverage_amount=random.uniform(20000, 100000),
+                premium=round(random.uniform(500, 2000), 2),
+                sum_insured=round(random.uniform(20000, 100000), 2),
                 status=PolicyStatus.ACTIVE
             )
             all_farms.append(f3)

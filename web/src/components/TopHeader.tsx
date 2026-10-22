@@ -3,6 +3,7 @@ import { Search, Bell, User, LogOut, CheckCircle2, AlertTriangle, Shield, Sprout
 import { Link, useNavigate } from 'react-router-dom';
 import { useUserRole, DEFAULT_AVATAR } from '../context/RoleContext';
 import { api } from '../api';
+import { formatFullNotificationTimestamp, formatRelativeDuration } from '../utils/dateUtils';
 
 interface TopHeaderProps {
   onToggleMobileMenu?: () => void;
@@ -103,6 +104,23 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
   }, []);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const formatNotifTitle = (title?: string, message?: string): string => {
+    const t = (title || '').trim();
+    const lower = t.toLowerCase();
+    const lowerMsg = (message || '').toLowerCase();
+    if (lower.includes('welcome') || lowerMsg.includes('welcome') || lowerMsg.includes('स्वागत')) {
+      return '🎉 स्वागत (Welcome)';
+    }
+    if (lower === 'policy_status' || lower === 'policy status') {
+      return '📋 खाता व योजना स्थिति';
+    }
+    if (lower === 'system_alert') return '🔔 सिस्टम सूचना';
+    if (lower === 'weather_alert') return '🌦️ मौसम अलर्ट';
+    if (lower === 'risk_alert') return '⚠️ फसल जोखिम चेतावनी';
+    if (lower === 'claim_status') return '📑 दावा स्थिति';
+    return t || 'अलर्ट / Alert';
+  };
 
   return (
     <header className="w-full h-16 sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200/80 px-4 md:px-8 flex justify-between items-center shadow-xs">
@@ -225,13 +243,17 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
                           ) : (
                             <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
                           )}
-                          <span className="font-bold text-slate-800 truncate">{a.title || 'अलर्ट / Alert'}</span>
+                          <span className="font-bold text-slate-800 truncate">
+                            {formatNotifTitle(a.title, a.message || a.raw_message)}
+                          </span>
                         </div>
 
                         {/* Top corner action controls for this notification */}
                         <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-[10px] text-slate-400 font-normal mr-1">
-                            {a.created_at ? new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'अभी'}
+                          <span className="text-[10px] text-slate-500 font-medium mr-1 bg-slate-100/90 px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <span>{formatFullNotificationTimestamp(a.created_at).time}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-emerald-700 font-semibold">{formatRelativeDuration(a.created_at)}</span>
                           </span>
                           {!a.is_read && (
                             <button
@@ -253,7 +275,7 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
                       </div>
 
                       <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
-                        {a.message || a.threat_hi || a.raw_message}
+                        {(a.message || a.threat_hi || a.raw_message || '').replace(/^(POLICY_STATUS|SYSTEM_ALERT|🎉 स्वागत \(Welcome\)):\s*/i, '')}
                       </p>
                     </div>
                   ))

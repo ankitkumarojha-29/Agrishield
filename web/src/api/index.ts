@@ -33,7 +33,7 @@ export type Envelope<T> = {
   error: null | {
     code: string;
     message: string;
-    details: any;
+    details?: any;
   };
 };
 
@@ -59,6 +59,12 @@ export type Farm = {
   state?: string | null;
   district?: string | null;
   address?: string | null;
+  farmer?: {
+    id: string;
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
 };
 
 export type CropHealthResult = {
@@ -203,6 +209,18 @@ function createMockResponse<T>(data: T): Envelope<T> {
   };
 }
 
+function createErrorResponse<T = any>(err: any, fallbackMessage: string): Envelope<T> {
+  const code = err.response?.data?.error?.code || 'OPERATION_FAILED';
+  const message = err.response?.data?.error?.message || err.message || fallbackMessage;
+  const details = err.response?.data?.error?.details || null;
+  return {
+    success: false,
+    data: null as any,
+    meta: { request_id: 'err-' + Date.now(), timestamp: new Date().toISOString() },
+    error: { code, message, details },
+  };
+}
+
 export type User = {
   id: string;
   email?: string;
@@ -211,6 +229,24 @@ export type User = {
   role: 'ADMIN' | 'INSURER' | 'FARMER' | string;
   is_active?: boolean;
   avatar_url?: string | null;
+  google_id?: string | null;
+  is_google_linked?: boolean;
+  created_at?: string;
+};
+
+export type GoogleAuthResponse = {
+  status: 'AUTHENTICATED' | 'REQUIRES_PHONE_LINKING';
+  is_linked: boolean;
+  access_token?: string;
+  linking_ticket?: string;
+  user?: User;
+  google_profile?: {
+    name?: string;
+    email?: string;
+    avatar_url?: string;
+  };
+  message?: string;
+  is_new_user?: boolean;
 };
 
 export type Farmer = {
@@ -224,6 +260,8 @@ export type Farmer = {
   total_area_ha?: number;
   crops?: string[];
   avatar_url?: string | null;
+  farm_names?: string[];
+  khasra_numbers?: string[];
 };
 
 export type FarmerOverview = {
@@ -299,42 +337,44 @@ export const api = {
     policies: null as Envelope<Policy[]> | null,
   },
 
-  sendOtp: async (phone: string): Promise<Envelope<{ phone: string; otp_sent: boolean; otp_code: string; message: string }>> => {
-    try {
-      const res = await apiClient.post('/auth/send-otp', { phone });
-      return res.data;
-    } catch (err: any) {
-      console.warn("Backend send-otp failed, fallback code provided:", err);
-      return createMockResponse({
-        phone,
-        otp_sent: true,
-        otp_code: "123456",
-        message: "6-digit OTP code sent successfully (Dev code: 123456)"
-      });
-    }
+  sendOtp: async (phone: string): Promise<Envelope<{ phone: string; otp_sent: boolean; otp_code?: string; message: string; is_development?: boolean }>> => {
+    const res = await apiClient.post('/auth/send-otp', { phone });
+    return res.data;
   },
 
   verifyOtp: async (payload: { phone: string; otp: string; name?: string }): Promise<Envelope<{ user: User; access_token: string; is_new_user: boolean }>> => {
     api.invalidateCache();
-    try {
-      const res = await apiClient.post('/auth/verify-otp', payload);
-      return res.data;
-    } catch (err: any) {
-      console.warn("Backend verify-otp failed, using resilient session:", err);
-      if (payload.otp === "123456" || payload.otp.length === 6) {
-        return createMockResponse({
-          user: {
-            id: 'usr_' + Date.now(),
-            name: payload.name || 'Farmer',
-            phone: payload.phone,
-            role: 'FARMER'
-          },
-          access_token: 'live_farmer_token_' + Date.now(),
-          is_new_user: false
-        });
-      }
-      throw err;
-    }
+    const res = await apiClient.post('/auth/verify-otp', payload);
+    return res.data;
+  },
+
+  googleAuth: async (idToken: string): Promise<Envelope<GoogleAuthResponse>> => {
+    api.invalidateCache();
+    const res = await apiClient.post('/auth/google', { id_token: idToken });
+    return res.data;
+  },
+
+  googleLinkPhone: async (payload: {
+    linking_ticket: string;
+    phone: string;
+    otp: string;
+    name?: string;
+  }): Promise<Envelope<GoogleAuthResponse>> => {
+    api.invalidateCache();
+    const res = await apiClient.post('/auth/google/link-phone', payload);
+    return res.data;
+  },
+
+  linkGoogleAccount: async (idToken: string): Promise<Envelope<{ success: boolean; user: User; message: string }>> => {
+    api.invalidateCache();
+    const res = await apiClient.post('/auth/google/link', { id_token: idToken });
+    return res.data;
+  },
+
+  unlinkGoogleAccount: async (): Promise<Envelope<{ success: boolean; message: string }>> => {
+    api.invalidateCache();
+    const res = await apiClient.post('/auth/google/unlink');
+    return res.data;
   },
 
   getPendingAdmins: async (): Promise<Envelope<PendingAdmin[]>> => {
@@ -375,16 +415,8 @@ export const api = {
 
   register: async (userData: any): Promise<Envelope<{ user: User; access_token?: string; requires_approval?: boolean; message?: string }>> => {
     api.invalidateCache();
-    try {
-      const res = await apiClient.post('/auth/register', userData);
-      return res.data;
-    } catch (err) {
-      return createMockResponse({
-        user: { id: 'usr_' + Date.now(), email: userData.email, name: userData.name, role: 'ADMIN' },
-        requires_approval: true,
-        message: 'Administrator registration submitted successfully! Your account is pending authorization by an existing active administrator within 7 days.'
-      });
-    }
+    const res = await apiClient.post('/auth/register', userData);
+    return res.data;
   },
 
   getMe: async (): Promise<Envelope<User>> => {
@@ -466,7 +498,7 @@ export const api = {
       const res = await apiClient.post('/admin/alerts/broadcast', payload);
       return res.data;
     } catch (err) {
-      return createMockResponse({ broadcast_success: true, recipients_count: 28 });
+      return createErrorResponse(err, 'Failed to broadcast alert to farmers.');
     }
   },
 
@@ -511,9 +543,7 @@ export const api = {
       const res = await apiClient.post(`/claims/${id}/review`, { action });
       return res.data;
     } catch (err) {
-      const claim = MOCK_CLAIMS.find(c => c.id === id) || MOCK_CLAIMS[0];
-      const updated: Claim = { ...claim, status: action === 'APPROVE' ? 'APPROVED' : 'REJECTED' };
-      return createMockResponse(updated);
+      return createErrorResponse(err, 'Failed to update claim review.');
     }
   },
 
@@ -701,7 +731,7 @@ export const api = {
       return res.data;
     } catch (err) {
       api.invalidateCache('farms');
-      return createMockResponse({ success: true, ...data });
+      return createErrorResponse(err, 'Failed to update farm parcel.');
     }
   },
 
@@ -746,7 +776,7 @@ export const api = {
       });
       return res.data;
     } catch (err) {
-      return createMockResponse({ id: idempotencyKey, status: 'SUBMITTED' });
+      return createErrorResponse(err, 'Failed to submit insurance claim.');
     }
   },
 
@@ -756,11 +786,7 @@ export const api = {
       const res = await apiClient.post('/auth/register-or-login', { phone, name, role });
       return res.data;
     } catch (err) {
-      console.warn("Phone login backend request failed, using resilient fallback session:", err);
-      return createMockResponse({
-        user: { id: 'usr_' + Date.now(), name: name || 'Farmer', phone, email: '', role: 'FARMER' },
-        access_token: 'live_farmer_token_' + Date.now()
-      });
+      return createErrorResponse(err, 'Phone login failed. Please verify phone number.');
     }
   },
 
@@ -779,10 +805,7 @@ export const api = {
       return res.data;
     } catch (err) {
       api.invalidateCache('farms');
-      return createMockResponse({
-        farm_id: 'farm_' + Date.now(),
-        area_m2: 24000.0
-      });
+      return createErrorResponse(err, 'Failed to register farm parcel.');
     }
   },
 
@@ -893,7 +916,7 @@ export const api = {
       const res = await apiClient.post(`/notifications/${id}/read`);
       return res.data;
     } catch (err) {
-      return createMockResponse({ id, is_read: true });
+      return createErrorResponse(err, 'Failed to mark notification as read.');
     }
   },
 
@@ -902,7 +925,7 @@ export const api = {
       const res = await apiClient.post('/notifications/mark-all-read');
       return res.data;
     } catch (err) {
-      return createMockResponse({ marked_count: 0 });
+      return createErrorResponse(err, 'Failed to mark notifications as read.');
     }
   },
 
@@ -911,7 +934,7 @@ export const api = {
       const res = await apiClient.delete(`/notifications/${id}`);
       return res.data;
     } catch (err) {
-      return createMockResponse({ id, deleted: true });
+      return createErrorResponse(err, 'Failed to delete notification.');
     }
   },
 
@@ -920,7 +943,7 @@ export const api = {
       const res = await apiClient.post('/notifications/clear');
       return res.data;
     } catch (err) {
-      return createMockResponse({ cleared: true });
+      return createErrorResponse(err, 'Failed to clear notifications.');
     }
   },
 
@@ -929,7 +952,7 @@ export const api = {
       const res = await apiClient.post('/notifications/scan');
       return res.data;
     } catch (err) {
-      return createMockResponse({ scanned: true, new_alerts_generated: 0 });
+      return createErrorResponse(err, 'Failed to scan farms for alerts.');
     }
   },
 

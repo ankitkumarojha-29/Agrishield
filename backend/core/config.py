@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
 
+    # Google OAuth 2.0 & OTP Mode
+    GOOGLE_CLIENT_ID: str = ""
+    OTP_MODE: str = "development"  # "development" (free on-screen/autofill) | "production" (real SMS provider)
+    SMS_PROVIDER_API_KEY: str = ""
+
     # AI Service
     AI_SERVICE_URL: str = "http://localhost:8001"
     AI_MODE: str = "live"   # live | mock

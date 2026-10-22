@@ -6,10 +6,13 @@ import {
   CheckCircle2, 
   MapPin, 
   Languages,
-  Sprout
+  Sprout,
+  Shield,
+  AlertTriangle
 } from 'lucide-react';
 import { api, type Farm } from '../api';
 import { useUserRole, DEFAULT_AVATAR } from '../context/RoleContext';
+import { initGoogleSignIn } from '../utils/googleAuth';
 
 const AVATAR_PRESETS = [
   { label: 'किसान', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80' },
@@ -27,9 +30,71 @@ export default function Profile() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Google Account Linking state
+  const [googleLinking, setGoogleLinking] = useState(false);
+  const [googleLinkError, setGoogleLinkError] = useState<string | null>(null);
+  const [googleUnlinkLoading, setGoogleUnlinkLoading] = useState(false);
+  const [isGoogleLinkRendered, setIsGoogleLinkRendered] = useState(false);
+  const googleLinkBtnRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     loadUserProfile();
   }, []);
+
+  // Initialize GIS button for account linking if not linked
+  useEffect(() => {
+    if (!userData?.google_id && googleLinkBtnRef.current) {
+      const rendered = initGoogleSignIn(
+        googleLinkBtnRef.current,
+        async (resp) => {
+          setGoogleLinking(true);
+          setGoogleLinkError(null);
+          try {
+            const res = await api.linkGoogleAccount(resp.credential);
+            if (res && res.success && res.data?.user) {
+              setUserData((prev: any) => ({ ...prev, ...res.data.user, google_id: res.data.user.google_id }));
+              setSaveMessage('Google खाता सफलतापूर्वक जुड़ गया है! (Google account linked)');
+              setTimeout(() => setSaveMessage(null), 4000);
+            } else {
+              setGoogleLinkError(res?.error?.message || 'Failed to link Google account.');
+            }
+          } catch (err: any) {
+            setGoogleLinkError(err.response?.data?.error?.message || err.message || 'Google linking failed.');
+          } finally {
+            setGoogleLinking(false);
+          }
+        },
+        (err) => {
+          console.info("GIS linking notice:", err.message);
+          setIsGoogleLinkRendered(false);
+        },
+        'signin_with'
+      );
+      setIsGoogleLinkRendered(!!rendered);
+    }
+  }, [userData?.google_id]);
+
+  const handleUnlinkGoogle = async () => {
+    if (!window.confirm("क्या आप वाकई अपना Google खाता हटाना चाहते हैं? आप अपने पंजीकृत मोबाइल नंबर से लॉगिन करते रहेंगे।")) {
+      return;
+    }
+    setGoogleUnlinkLoading(true);
+    setGoogleLinkError(null);
+    try {
+      const res = await api.unlinkGoogleAccount();
+      if (res && res.success) {
+        setUserData((prev: any) => ({ ...prev, google_id: null }));
+        setSaveMessage('Google खाता हटा दिया गया है (Google unlinked)');
+        setTimeout(() => setSaveMessage(null), 4000);
+      } else {
+        setGoogleLinkError(res?.error?.message || 'Failed to unlink Google account.');
+      }
+    } catch (err: any) {
+      setGoogleLinkError(err.response?.data?.error?.message || err.message || 'Unlink failed.');
+    } finally {
+      setGoogleUnlinkLoading(false);
+    }
+  };
 
   const loadUserProfile = async () => {
     setLoading(true);
@@ -308,6 +373,100 @@ export default function Profile() {
                 <p className="text-sm font-bold text-slate-900 mt-1 flex items-center gap-1">
                   <Languages size={14} className="text-emerald-600" /> हिंदी / English
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Identity & Account Linking Card */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield size={16} className="text-emerald-600" />
+                <span>खाता सुरक्षा व लॉगिन लिंक्स (Login Methods)</span>
+              </div>
+              <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-mono">
+                ID: {userData?.id ? `${userData.id.slice(0, 8)}...` : 'N/A'}
+              </span>
+            </h3>
+
+            {googleLinkError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
+                <AlertTriangle size={15} className="shrink-0" />
+                <span>{googleLinkError}</span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {/* Mobile Phone Verification Status */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                    <Phone size={15} />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 block">सत्यापित मोबाइल नंबर (Primary Phone)</span>
+                    <span className="text-slate-500 font-mono text-[11px]">{displayPhone}</span>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                  <CheckCircle2 size={12} />
+                  <span>सत्यापित (Verified)</span>
+                </span>
+              </div>
+
+              {/* Google Account Linking Status */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-center">
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 block">Google खाता (Google Account)</span>
+                    <span className="text-slate-500 text-[11px]">
+                      {userData?.google_id ? (userData.email || 'Google खाता जुड़ा हुआ है') : 'कोई Google खाता जुड़ा नहीं है'}
+                    </span>
+                  </div>
+                </div>
+
+                {userData?.google_id ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                      <CheckCircle2 size={12} />
+                      <span>जुड़ा हुआ (Linked)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleUnlinkGoogle}
+                      disabled={googleUnlinkLoading}
+                      className="text-[11px] text-red-600 hover:text-red-800 hover:underline px-2 py-1 font-semibold"
+                    >
+                      {googleUnlinkLoading ? 'हटा रहे हैं...' : 'हटाएं (Unlink)'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div ref={googleLinkBtnRef} className={isGoogleLinkRendered ? 'block' : 'hidden'} />
+                    {!isGoogleLinkRendered && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const btn = googleLinkBtnRef.current?.querySelector('div[role="button"]') as HTMLElement;
+                          if (btn) btn.click();
+                          else alert("Google Client ID सेट करने के बाद 1-क्लिक में Google खाता जोड़ सकते हैं।");
+                        }}
+                        disabled={googleLinking}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                      >
+                        {googleLinking ? 'जोड़ रहे हैं...' : '🔗 Link Google Account'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

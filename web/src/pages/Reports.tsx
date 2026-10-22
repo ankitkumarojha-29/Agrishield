@@ -102,11 +102,13 @@ export default function Reports() {
       const mimeType = report.type === 'CSV' ? 'text/csv;charset=utf-8;' : 'text/plain;charset=utf-8;';
       const file = new Blob([content], { type: mimeType });
       const element = document.createElement("a");
-      element.href = URL.createObjectURL(file);
+      const objectUrl = URL.createObjectURL(file);
+      element.href = objectUrl;
       element.download = `${report.name.replace(/\s+/g, '_')}.${report.type.toLowerCase()}`;
       document.body.appendChild(element);
       element.click();
       document.body.removeChild(element);
+      URL.revokeObjectURL(objectUrl);
     } catch (e) {
       console.error("Report download error:", e);
     } finally {

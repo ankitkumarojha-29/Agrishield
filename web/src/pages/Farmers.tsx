@@ -52,6 +52,7 @@ export default function Farmers() {
   const [loadingFarms, setLoadingFarms] = useState(false);
   const [activeTab, setActiveTab] = useState<'farms' | 'scans' | 'soil'>('farms');
   const [cropsList, setCropsList] = useState<CropInfo[]>(CROPS_CATALOG);
+  const [plotSearch, setPlotSearch] = useState('');
 
   useEffect(() => {
     fetchCropsCatalog().then(data => {
@@ -84,6 +85,7 @@ export default function Farmers() {
   const handleInspectFarmer = async (farmer: Farmer) => {
     setSelectedFarmer(farmer);
     setActiveTab('farms');
+    setPlotSearch('');
     setLoadingFarms(true);
     try {
       const res = await api.getFarmerOverview(farmer.id);
@@ -134,7 +136,9 @@ export default function Farmers() {
       (farmer.name && farmer.name.toLowerCase().includes(q)) ||
       (farmer.phone && farmer.phone.toLowerCase().includes(q)) ||
       (farmer.email && farmer.email.toLowerCase().includes(q)) ||
-      (farmer.id && farmer.id.toLowerCase().includes(q))
+      (farmer.id && farmer.id.toLowerCase().includes(q)) ||
+      (farmer.farm_names && farmer.farm_names.some(fn => fn.toLowerCase().includes(q))) ||
+      (farmer.khasra_numbers && farmer.khasra_numbers.some(kn => kn.toLowerCase().includes(q)))
     );
 
     const matchesCrop = selectedCrop === 'all' || (
@@ -156,6 +160,16 @@ export default function Farmers() {
   const startIndex = (safePage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalFilteredFarmers);
   const paginatedFarmers = filteredFarmers.slice(startIndex, endIndex);
+
+  const filteredFarmerPlots = farmerFarms.filter(farm => {
+    if (!plotSearch.trim()) return true;
+    const q = plotSearch.toLowerCase().trim();
+    return (
+      (farm.name && farm.name.toLowerCase().includes(q)) ||
+      (farm.khasra_number && farm.khasra_number.toLowerCase().includes(q)) ||
+      (farm.crop && farm.crop.toLowerCase().includes(q))
+    );
+  });
 
   const totalAcreageHa = farmers.reduce((acc, f) => acc + (f.total_area_ha || 0), 0);
   const totalParcels = farmers.reduce((acc, f) => acc + (f.farm_count || 1), 0);
@@ -218,10 +232,20 @@ export default function Farmers() {
           <input 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-xs md:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-all"
-            placeholder="Search by farmer name, phone number, or ID..." 
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-10 pr-9 text-xs md:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+            placeholder="नाम, मोबाइल, ID, ईमेल या खसरा से खोजें..." 
             type="text" 
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200 transition-colors"
+              title="Clear search"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
@@ -522,12 +546,35 @@ export default function Farmers() {
             {/* Tab Content */}
             {activeTab === 'farms' && (
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Linked Farm Parcels ({farmerFarms.length})
                   </h3>
                   <span className="text-[11px] text-emerald-700 font-semibold">PostGIS Bounded</span>
                 </div>
+
+                {/* Plot Search Bar */}
+                {farmerFarms.length > 0 && (
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-2.5 text-slate-400" size={13} />
+                    <input
+                      type="text"
+                      placeholder="खसरा संख्या या खेत के नाम से खोजें (Search khasra # or farm name)..."
+                      value={plotSearch}
+                      onChange={(e) => setPlotSearch(e.target.value)}
+                      className="w-full pl-8 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 focus:bg-white transition-all text-slate-900 placeholder:text-slate-400"
+                    />
+                    {plotSearch && (
+                      <button
+                        onClick={() => setPlotSearch('')}
+                        className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
+                        title="Clear plot search"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {loadingFarms ? (
                   <div className="p-8 text-center">
@@ -538,9 +585,25 @@ export default function Farmers() {
                   <div className="p-6 text-center border border-dashed border-slate-200 rounded-xl text-xs text-slate-500">
                     Farmer has not submitted any GPS boundaries yet.
                   </div>
+                ) : filteredFarmerPlots.length === 0 ? (
+                  <div className="p-6 text-center border border-dashed border-slate-200 rounded-xl text-xs text-slate-500">
+                    खसरा संख्या या नाम <span className="font-semibold text-slate-700">"{plotSearch}"</span> से कोई खेत नहीं मिला।
+                    <button
+                      onClick={() => setPlotSearch('')}
+                      className="block mx-auto mt-2 text-emerald-700 font-bold hover:underline"
+                    >
+                      Clear Search
+                    </button>
+                  </div>
                 ) : (
                   <div className="space-y-3">
-                    {farmerFarms.map((farm) => (
+                    {plotSearch && (
+                      <div className="text-[11px] text-slate-500 flex justify-between items-center px-1">
+                        <span>Showing {filteredFarmerPlots.length} of {farmerFarms.length} plots</span>
+                        <button onClick={() => setPlotSearch('')} className="text-emerald-700 hover:underline">Reset</button>
+                      </div>
+                    )}
+                    {filteredFarmerPlots.map((farm) => (
                       <div key={farm.id} className="p-4 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 transition-all flex flex-col justify-between">
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-bold text-slate-900 text-sm">{farm.name}</span>

@@ -247,6 +247,10 @@ export default function SoilAnalysis() {
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if (file.size > 15 * 1024 * 1024) {
+        setError('मृदा कार्ड दस्तावेज़ 15 MB से कम होना चाहिए (File size must not exceed 15 MB).');
+        return;
+      }
       setSelectedFile(file);
       setPreviewName(file.name);
       setResult(null);

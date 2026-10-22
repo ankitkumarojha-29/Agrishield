@@ -124,7 +124,7 @@ export default function Dashboard() {
             loadedFarms = farmsRes.value.data;
             setFarms(loadedFarms);
             const totalM2 = loadedFarms.reduce((acc, f) => acc + (f.area_m2 || 0), 0);
-            setTotalAreaHa(Math.round(totalM2 / 10000));
+            setTotalAreaHa(Math.round((totalM2 / 10000) * 100) / 100);
           }
           if (notifsRes.status === 'fulfilled' && notifsRes.value.success) {
             const unread = notifsRes.value.data.filter(n => !n.is_read).length;

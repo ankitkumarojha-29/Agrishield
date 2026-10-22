@@ -166,14 +166,34 @@ export default function AddFarm() {
   const approxAreaBigha = ((approxAreaM2 / 10000) * 4.0).toFixed(2);
   const isValid = points.length >= 3;
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // SECTION: FARM PARCEL SUBMISSION AND VALIDATION
+  // ──────────────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!farmName.trim()) {
-      setError('Please enter a farm name.');
+    const cleanName = farmName.trim();
+    if (!cleanName || cleanName.length < 2) {
+      setError('कृपया खेत का नाम दर्ज करें (कम से कम 2 अक्षर / Please enter farm name, at least 2 chars).');
+      return;
+    }
+    if (cleanName.length > 100) {
+      setError('खेत का नाम 100 अक्षरों से अधिक नहीं हो सकता (Farm name cannot exceed 100 characters).');
+      return;
+    }
+    if (khasraNumber.trim().length > 50) {
+      setError('खसरा नंबर 50 अक्षरों से अधिक नहीं हो सकता (Khasra number cannot exceed 50 characters).');
       return;
     }
     if (points.length < 3) {
-      setError('A farm boundary requires at least 3 points.');
+      setError('खेत की सीमा के लिए मानचित्र पर कम से कम 3 कोने बिंदु आवश्यक हैं (Boundary requires at least 3 points).');
+      return;
+    }
+    if (approxAreaM2 < 100) {
+      setError('खेत का क्षेत्रफल बहुत कम है (कम से कम 100 वर्ग मीटर / At least 100 m² required).');
+      return;
+    }
+    if (approxAreaM2 > 100_000_000) {
+      setError('खेत का क्षेत्रफल PMFBY सीमा (10,000 हेक्टेयर) से अधिक है।');
       return;
     }
 
