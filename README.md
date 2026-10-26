@@ -1,12 +1,14 @@
 # 🌱 AgriShield — AI-Powered Crop Intelligence & Farm-Risk Platform
 
+[![Live Platform](https://img.shields.io/badge/Live_Website-agrishield.kesug.com-059669?style=for-the-badge&logo=google-chrome&logoColor=white)](https://agrishield.kesug.com/)
 [![Production Ready](https://img.shields.io/badge/Status-Production_Ready-008080?style=for-the-badge)](https://github.com/ankitkumarojha-29/Agrishield)
-[![Frontend](https://img.shields.io/badge/Frontend-Vercel_%28React_18_%2B_Vite_%2B_TS%29-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://vercel.com)
+[![Frontend](https://img.shields.io/badge/Frontend-React_18_%2B_Vite_%2B_TS-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://agrishield.kesug.com/)
 [![Backend](https://img.shields.io/badge/Backend-Render_%28FastAPI_%2B_PostGIS%29-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://render.com)
 [![Database](https://img.shields.io/badge/Database-Supabase_%2B_PostGIS_3.3.7-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
 [![AI Microservice](https://img.shields.io/badge/AI_Engine-FastAPI_%2B_PyTorch_%2B_ML-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
+> 🌐 **Live Production Website:** [https://agrishield.kesug.com/](https://agrishield.kesug.com/)  
 > **AgriShield** is a modern agronomic intelligence, satellite monitoring, and farm-risk platform built for smallholder farmers, agronomists, and agricultural administrators. It bridges field reality with satellite earth observation (Copernicus Sentinel-2), hyper-local weather intelligence, AI-driven soil card parsing (EasyOCR), real-time Agmarknet Mandi market pricing, and deep learning crop disease diagnostics.
 
 ---
@@ -575,6 +577,18 @@ The script will copy your public HTTPS URL to the clipboard. Paste this into Ren
    - `VITE_API_BASE_URL`: `https://<your-backend>.onrender.com/api/v1`
    - `VITE_DEMO_MODE`: `false`
 4. Click **Deploy**. In under 60 seconds, your platform will be live worldwide with automated SSL and edge CDN caching.
+
+### D. Production Web Hosting & Search Optimization (InfinityFree / cPanel / Apache)
+For standard web hosting environments like `https://agrishield.kesug.com/`:
+1. **Automated WebP Image Compression**: All static background, hero, and branding assets are converted to next-generation WebP (yielding up to 86% size reduction and sub-second Largest Contentful Paint).
+2. **Server-Side Caching & Compression**: `web/public/.htaccess` declares explicit MIME types (`image/webp`), 1-year immutable asset caching (`Cache-Control: max-age=31536000`), and Gzip/Deflate compression for stylesheets and scripts.
+3. **Crawlable Semantic Pre-Rendering**: Pre-rendered semantic HTML is structured within `#root` in `index.html` allowing Googlebot and web spiders to discover core `<h1>` headings, paragraphs, and links immediately before JavaScript mounts.
+4. **Keyword-Targeted Route Aliasing**:
+   - `/crop-monitoring` — Sentinel-2 multispectral NDVI/NDMI observation
+   - `/irrigation-planning` — Weather and moisture deficit irrigation forecasting
+   - `/crop-suitability` — Soil Health Card OCR and fertilizer prescriptions
+   - `/crop-health` — AI leaf diagnostic scanner
+5. **Canonical Sitemaps**: Up-to-date `sitemap.xml` and `robots.txt` submitted directly to Google Search Console for automated indexing.
 
 ---
 
