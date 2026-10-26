@@ -1,0 +1,28 @@
+# AgriShield Robots.txt
+# https://agrishield.kesug.com
+
+User-agent: *
+Allow: /
+Allow: /crop-monitoring
+Allow: /irrigation-planning
+Allow: /crop-suitability
+Allow: /crop-health
+Allow: /farms
+Allow: /crop-scan
+Allow: /soil-analysis
+Allow: /weather-irrigation
+Allow: /alerts
+Allow: /reports
+Allow: /revenue
+Allow: /dashboard
+Allow: /farmers
+Allow: /register
+Allow: /login
+
+# Disallow internal administrative and private endpoints
+Disallow: /admin-approvals
+Disallow: /api/
+
+# Host and Sitemap
+Host: https://agrishield.kesug.com
+Sitemap: https://agrishield.kesug.com/sitemap.xml

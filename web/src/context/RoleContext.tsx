@@ -3,7 +3,7 @@ import { api } from '../api';
 
 export type UserRole = 'farmer' | 'admin';
 
-export const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80";
+export const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=128&q=80&fm=webp";
 
 interface RoleContextType {
   role: UserRole;

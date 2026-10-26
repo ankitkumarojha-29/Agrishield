@@ -120,6 +120,9 @@ export default function Layout() {
               alt="AgriShield Logo" 
               className="h-10 w-auto object-contain transition-transform group-hover:scale-105" 
               src="/logo-trimmed.webp" 
+              width={160}
+              height={40}
+              decoding="async"
             />
           </Link>
           <div className="mt-2.5 flex items-center justify-between">
@@ -162,7 +165,7 @@ export default function Layout() {
           <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl flex flex-col py-5 z-10 animate-in slide-in-from-left duration-250">
             <div className="px-5 pb-4 flex items-center justify-between border-b border-slate-100">
               <Link to="/" onClick={() => setIsMobileMenuOpen(false)}>
-                <img alt="AgriShield Logo" className="h-9 w-auto object-contain" src="/logo-trimmed.webp" />
+                <img alt="AgriShield Logo" className="h-9 w-auto object-contain" src="/logo-trimmed.webp" width={144} height={36} decoding="async" />
               </Link>
               <button 
                 onClick={() => setIsMobileMenuOpen(false)}

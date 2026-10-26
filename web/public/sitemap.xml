@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <!-- Public Landing & Platform Overview -->
+  <url>
+    <loc>https://agrishield.kesug.com/</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Satellite Crop Monitoring (Sentinel-2 NDVI, NDMI, NDWI) -->
+  <url>
+    <loc>https://agrishield.kesug.com/crop-monitoring</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Interactive GIS Farm Boundaries & Acreage Calculation -->
+  <url>
+    <loc>https://agrishield.kesug.com/farms</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Weather-Based Irrigation Planning & Agro-Meteorology -->
+  <url>
+    <loc>https://agrishield.kesug.com/irrigation-planning</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Agro-Meteorology & Smart Irrigation Advisory -->
+  <url>
+    <loc>https://agrishield.kesug.com/weather-irrigation</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Crop Suitability & Soil Health Card OCR -->
+  <url>
+    <loc>https://agrishield.kesug.com/crop-suitability</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Soil Health Card OCR & Nutrient Analysis -->
+  <url>
+    <loc>https://agrishield.kesug.com/soil-analysis</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- AI Crop Health & Foliage Disease Diagnosis -->
+  <url>
+    <loc>https://agrishield.kesug.com/crop-health</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- AI Foliage Disease Scanner -->
+  <url>
+    <loc>https://agrishield.kesug.com/crop-scan</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- APMC Live Mandi Rates & Revenue Forecasting -->
+  <url>
+    <loc>https://agrishield.kesug.com/revenue</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Early Warnings & Severe Weather Bulletins -->
+  <url>
+    <loc>https://agrishield.kesug.com/alerts</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Yield Forecasting & Risk Reports -->
+  <url>
+    <loc>https://agrishield.kesug.com/reports</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Central Farmer Dashboard -->
+  <url>
+    <loc>https://agrishield.kesug.com/dashboard</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Farmer Directory & Landholdings -->
+  <url>
+    <loc>https://agrishield.kesug.com/farmers</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Farmer Onboarding & Registration -->
+  <url>
+    <loc>https://agrishield.kesug.com/register</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Secure Portal Authentication -->
+  <url>
+    <loc>https://agrishield.kesug.com/login</loc>
+    <lastmod>2026-10-26T22:00:00+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>

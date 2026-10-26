@@ -19,7 +19,15 @@ export default function Landing() {
       {/* Top Navbar */}
       <header className="w-full px-6 lg:px-12 py-5 flex justify-between items-center bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <img alt="AgriShield Logo" className="h-10 w-auto object-contain" src="/logo-trimmed.webp" />
+          <img 
+            alt="AgriShield Logo" 
+            className="h-10 w-auto object-contain" 
+            src="/logo-trimmed.webp" 
+            width={160}
+            height={40}
+            decoding="async"
+            fetchPriority="high"
+          />
           <span className="hidden sm:inline-block text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
             Crop Intelligence & Early Warning
           </span>
@@ -50,7 +58,7 @@ export default function Landing() {
 
         {/* Title */}
         <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 tracking-tight max-w-4xl leading-[1.15] mb-6">
-          AI-Powered Crop Intelligence & <span className="text-emerald-700 underline decoration-emerald-300 decoration-wavy">Early Warning</span> System
+          AgriShield — AI-Powered Crop Intelligence & <span className="text-emerald-700 underline decoration-emerald-300 decoration-wavy">Early Warning</span> Platform
         </h1>
 
         {/* Subtitle */}

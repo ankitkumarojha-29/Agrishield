@@ -345,7 +345,15 @@ export default function Login() {
         {/* Brand Header */}
         <div className="text-center mb-6">
           <Link to="/">
-            <img alt="AgriShield Logo" className="h-12 w-auto mx-auto mb-3 object-contain" src="/logo-trimmed.webp" />
+            <img 
+              alt="AgriShield Logo" 
+              className="h-12 w-auto mx-auto mb-3 object-contain" 
+              src="/logo-trimmed.webp" 
+              width={180}
+              height={48}
+              decoding="async"
+              fetchPriority="high"
+            />
           </Link>
           <h1 className="text-2xl font-bold text-slate-900">AgriShield Portal</h1>
           <p className="text-xs text-slate-500 mt-0.5">PMFBY Crop Intelligence &amp; Agronomic Governance</p>
@@ -596,7 +604,7 @@ export default function Login() {
                 {/* Google Identity Verified Banner */}
                 <div className="p-3 bg-sky-50 border border-sky-200 rounded-2xl flex items-center gap-3">
                   {googleProfile?.avatar_url ? (
-                    <img src={googleProfile.avatar_url} alt="Google Avatar" className="w-10 h-10 rounded-full border border-sky-300 object-cover" />
+                    <img src={googleProfile.avatar_url} alt="Google Avatar" className="w-10 h-10 rounded-full border border-sky-300 object-cover" width={40} height={40} decoding="async" />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-sky-200 text-sky-800 font-bold flex items-center justify-center text-sm">
                       {googleProfile?.name?.[0] || 'G'}

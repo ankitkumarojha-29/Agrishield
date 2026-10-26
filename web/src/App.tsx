@@ -34,11 +34,15 @@ function App() {
           {/* Farm & Agronomic Intelligence Platform */}
           <Route path="/farms" element={<FarmsMap />} />
           <Route path="/farms-map" element={<FarmsMap />} />
+          <Route path="/crop-monitoring" element={<FarmsMap />} />
           <Route path="/farms/:id" element={<FarmDetail />} />
           <Route path="/add-farm" element={<AddFarm />} />
           <Route path="/crop-scan" element={<CropScan />} />
+          <Route path="/crop-health" element={<CropScan />} />
           <Route path="/soil-analysis" element={<SoilAnalysis />} />
+          <Route path="/crop-suitability" element={<SoilAnalysis />} />
           <Route path="/weather-irrigation" element={<WeatherIrrigation />} />
+          <Route path="/irrigation-planning" element={<WeatherIrrigation />} />
           <Route path="/alerts" element={<Alerts />} />
           
           {/* Community & Admin Management */}

@@ -76,7 +76,15 @@ export default function Register() {
         {/* Brand Header */}
         <div className="text-center mb-6">
           <Link to="/">
-            <img alt="AgriShield Logo" className="h-12 w-auto mx-auto mb-3 object-contain" src="/logo-trimmed.webp" />
+            <img 
+              alt="AgriShield Logo" 
+              className="h-12 w-auto mx-auto mb-3 object-contain" 
+              src="/logo-trimmed.webp" 
+              width={180}
+              height={48}
+              decoding="async"
+              fetchPriority="high"
+            />
           </Link>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200 text-xs font-bold mb-2">
             <ShieldCheck size={14} className="text-sky-600" />

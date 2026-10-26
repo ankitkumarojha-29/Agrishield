@@ -159,6 +159,7 @@ export default function CropScan() {
                     src={previewUrl} 
                     alt="Leaf Preview" 
                     className="max-h-52 max-w-full rounded-xl object-contain shadow-xs" 
+                    decoding="async"
                   />
                   <span className="mt-2 text-xs text-emerald-700 font-bold hover:underline flex items-center gap-1">
                     <Camera size={14} /> दूसरी फोटो खींचें (Retake Photo)

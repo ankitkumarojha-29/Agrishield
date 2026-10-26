@@ -1,0 +1,55 @@
+{
+  "name": "AgriShield — AI-Powered Crop Insurance & Farm Risk Platform",
+  "short_name": "AgriShield",
+  "description": "Next-generation AI agricultural intelligence, farm-risk monitoring, and spot market platform for Pradhan Mantri Fasal Bima Yojana (PMFBY).",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "categories": ["agriculture", "business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon-16x16.webp",
+      "sizes": "16x16",
+      "type": "image/webp"
+    },
+    {
+      "src": "/favicon-32x32.webp",
+      "sizes": "32x32",
+      "type": "image/webp"
+    },
+    {
+      "src": "/android-chrome-192x192.webp",
+      "sizes": "192x192",
+      "type": "image/webp"
+    },
+    {
+      "src": "/android-chrome-512x512.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    },
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

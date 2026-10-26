@@ -327,6 +327,10 @@ export default function Farmers() {
                               src={farmer.avatar_url || DEFAULT_AVATAR} 
                               alt={farmer.name || 'Farmer'} 
                               className="w-full h-full object-cover" 
+                              width={36}
+                              height={36}
+                              loading="lazy"
+                              decoding="async"
                               onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
                             />
                           </div>
@@ -461,6 +465,10 @@ export default function Farmers() {
                     src={selectedFarmer.avatar_url || DEFAULT_AVATAR} 
                     alt={selectedFarmer.name || 'Farmer'} 
                     className="w-full h-full object-cover" 
+                    width={48}
+                    height={48}
+                    loading="lazy"
+                    decoding="async"
                     onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
                   />
                 </div>

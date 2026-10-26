@@ -304,6 +304,9 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
                 alt="User Avatar" 
                 className="w-full h-full object-cover" 
                 src={avatarUrl || DEFAULT_AVATAR}
+                width={32}
+                height={32}
+                decoding="async"
                 onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }} 
               />
             </div>

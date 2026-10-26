@@ -15,10 +15,10 @@ import { useUserRole, DEFAULT_AVATAR } from '../context/RoleContext';
 import { initGoogleSignIn } from '../utils/googleAuth';
 
 const AVATAR_PRESETS = [
-  { label: 'किसान', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80' },
-  { label: 'महिला किसान', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=256&q=80' },
-  { label: 'अधिकारी', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=256&q=80' },
-  { label: 'प्रशासक', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=256&q=80' },
+  { label: 'किसान', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=128&q=80&fm=webp' },
+  { label: 'महिला किसान', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=128&q=80&fm=webp' },
+  { label: 'अधिकारी', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=128&q=80&fm=webp' },
+  { label: 'प्रशासक', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=128&q=80&fm=webp' },
 ];
 
 export default function Profile() {
@@ -145,7 +145,7 @@ export default function Profile() {
           canvas.width = w;
           canvas.height = h;
           const ctx = canvas.getContext('2d');
-          const finalUri = ctx ? (ctx.drawImage(img, 0, 0, w, h), canvas.toDataURL('image/jpeg', 0.85)) : base64String;
+          const finalUri = ctx ? (ctx.drawImage(img, 0, 0, w, h), canvas.toDataURL('image/webp', 0.85)) : base64String;
           
           setAvatarUrl(finalUri);
           try {
@@ -230,6 +230,9 @@ export default function Profile() {
                 alt="Profile Avatar" 
                 className="w-full h-full object-cover" 
                 src={avatarUrl || DEFAULT_AVATAR}
+                width={112}
+                height={112}
+                decoding="async"
                 onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
               />
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -274,6 +277,10 @@ export default function Profile() {
                       src={p.url} 
                       alt={p.label} 
                       className="w-full h-full rounded-full object-cover" 
+                      width={36}
+                      height={36}
+                      loading="lazy"
+                      decoding="async"
                       onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
                     />
                   </button>
