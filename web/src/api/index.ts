@@ -23,6 +23,37 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// In-Flight Request Deduplicator & Lightweight SWR Cache
+const inFlightRequests = new Map<string, Promise<any>>();
+const swrCache = new Map<string, { data: any; expiry: number }>();
+
+async function dedupeGet<T>(url: string, ttlMs: number = 3000): Promise<T> {
+  const now = Date.now();
+  const cached = swrCache.get(url);
+  if (cached && cached.expiry > now) {
+    return cached.data;
+  }
+
+  if (inFlightRequests.has(url)) {
+    return inFlightRequests.get(url)!;
+  }
+
+  const promise = (async () => {
+    try {
+      const res = await apiClient.get<T>(url);
+      if (ttlMs > 0 && res.data && (res.data as any).success) {
+        swrCache.set(url, { data: res.data, expiry: Date.now() + ttlMs });
+      }
+      return res.data;
+    } finally {
+      inFlightRequests.delete(url);
+    }
+  })();
+
+  inFlightRequests.set(url, promise);
+  return promise;
+}
+
 export type Envelope<T> = {
   success: boolean;
   data: T;
@@ -421,8 +452,8 @@ export const api = {
 
   getMe: async (): Promise<Envelope<User>> => {
     try {
-      const res = await apiClient.get('/auth/me');
-      return res.data;
+      const res = await dedupeGet<Envelope<User>>('/auth/me', 4000);
+      return res;
     } catch (err) {
       const storedRole = localStorage.getItem('user_role') === 'admin' ? 'ADMIN' : 'FARMER';
       const storedPhone = localStorage.getItem('farmer_phone') || '';
@@ -504,23 +535,20 @@ export const api = {
 
   getNotifications: async (): Promise<Envelope<Notification[]>> => {
     try {
-      const res = await apiClient.get('/notifications');
-      return res.data;
+      const res = await dedupeGet<Envelope<Notification[]>>('/notifications', 3000);
+      return res;
     } catch (err) {
       return createMockResponse([]);
     }
   },
 
   getFarms: async (page: number = 1, page_size: number = 10000): Promise<Envelope<Farm[]>> => {
-    if (api._cache.farms) return api._cache.farms;
     try {
-      const res = await apiClient.get(`/farms?page=${page}&page_size=${page_size}`);
-      api._cache.farms = res.data;
-      return res.data;
+      const res = await dedupeGet<Envelope<Farm[]>>(`/farms?page=${page}&page_size=${page_size}`, 3000);
+      return res;
     } catch (err) {
       console.warn("Farms fetch failed, providing fallback farms:", err);
       const fallback = createMockResponse(MOCK_FARMS);
-      api._cache.farms = fallback;
       return fallback;
     }
   },
@@ -957,6 +985,8 @@ export const api = {
   },
 
   invalidateCache: (key?: 'farms' | 'claims' | 'policies') => {
+    swrCache.clear();
+    inFlightRequests.clear();
     if (key) {
       api._cache[key] = null;
     } else {

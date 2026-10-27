@@ -32,11 +32,27 @@ export default function Dashboard() {
   const [farms, setFarms] = useState<Farm[]>([]);
   const [totalAreaHa, setTotalAreaHa] = useState(0);
 
-  // Farmer live GPS location & Sentinel-2 state
-  const [userCoords, setUserCoords] = useState<{ lat: number; lon: number } | null>(null);
-  const [locationName, setLocationName] = useState<string>('Detecting GPS location...');
+  // Farmer live GPS location & Sentinel-2 state (cached per session so tab switches are instant)
+  const [userCoords, setUserCoords] = useState<{ lat: number; lon: number } | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('agrishield_cached_coords');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [locationName, setLocationName] = useState<string>(() => {
+    return sessionStorage.getItem('agrishield_cached_locname') || 'Detecting GPS location...';
+  });
   const [isLocating, setIsLocating] = useState<boolean>(false);
-  const [satelliteData, setSatelliteData] = useState<SatelliteIndices | null>(null);
+  const [satelliteData, setSatelliteData] = useState<SatelliteIndices | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('agrishield_cached_satellite');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [satelliteLoading, setSatelliteLoading] = useState<boolean>(false);
   const [activeAlertsCount, setActiveAlertsCount] = useState<number>(0);
 
@@ -46,6 +62,7 @@ export default function Dashboard() {
       const satRes = await api.getSatelliteIndices(lat, lon, crop);
       if (satRes.success && satRes.data) {
         setSatelliteData(satRes.data);
+        sessionStorage.setItem('agrishield_cached_satellite', JSON.stringify(satRes.data));
       }
     } catch (err) {
       console.error("Satellite indices fetch error:", err);
@@ -54,16 +71,43 @@ export default function Dashboard() {
     }
   };
 
-  const detectLocationAndFetchSatellite = (userFarms: Farm[] = farms) => {
+  const detectLocationAndFetchSatellite = (userFarms: Farm[] = farms, forceRefresh: boolean = false) => {
+    // If location is already cached in this session and user didn't explicitly click Refresh, reuse it immediately
+    const cachedCoordsStr = sessionStorage.getItem('agrishield_cached_coords');
+    const cachedLocName = sessionStorage.getItem('agrishield_cached_locname');
+    if (!forceRefresh && cachedCoordsStr) {
+      try {
+        const coords = JSON.parse(cachedCoordsStr);
+        if (coords?.lat && coords?.lon) {
+          setUserCoords(coords);
+          if (cachedLocName) setLocationName(cachedLocName);
+          const cachedSat = sessionStorage.getItem('agrishield_cached_satellite');
+          if (cachedSat) {
+            setSatelliteData(JSON.parse(cachedSat));
+          } else {
+            const primaryCrop = userFarms[0]?.crop || 'Wheat';
+            fetchSatelliteData(coords.lat, coords.lon, primaryCrop);
+          }
+          return;
+        }
+      } catch (e) {
+        console.warn("Failed to parse cached session location:", e);
+      }
+    }
+
     setIsLocating(true);
     if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const lat = Number(pos.coords.latitude.toFixed(4));
           const lon = Number(pos.coords.longitude.toFixed(4));
-          setUserCoords({ lat, lon });
-          setLocationName(`Current GPS (${lat}° N, ${lon}° E)`);
+          const locName = `Current GPS (${lat}° N, ${lon}° E)`;
+          const coords = { lat, lon };
+          setUserCoords(coords);
+          setLocationName(locName);
           setIsLocating(false);
+          sessionStorage.setItem('agrishield_cached_coords', JSON.stringify(coords));
+          sessionStorage.setItem('agrishield_cached_locname', locName);
           const primaryCrop = userFarms[0]?.crop || 'Wheat';
           fetchSatelliteData(lat, lon, primaryCrop);
         },
@@ -78,8 +122,11 @@ export default function Dashboard() {
             fallbackLon = userFarms[0].centroid.lon;
             fallbackLabel = `${userFarms[0].name} Coordinates`;
           }
-          setUserCoords({ lat: fallbackLat, lon: fallbackLon });
+          const coords = { lat: fallbackLat, lon: fallbackLon };
+          setUserCoords(coords);
           setLocationName(fallbackLabel);
+          sessionStorage.setItem('agrishield_cached_coords', JSON.stringify(coords));
+          sessionStorage.setItem('agrishield_cached_locname', fallbackLabel);
           const primaryCrop = userFarms[0]?.crop || 'Wheat';
           fetchSatelliteData(fallbackLat, fallbackLon, primaryCrop);
         },
@@ -87,10 +134,19 @@ export default function Dashboard() {
       );
     } else {
       setIsLocating(false);
-      const fallbackLat = 23.2599;
-      const fallbackLon = 77.4126;
-      setUserCoords({ lat: fallbackLat, lon: fallbackLon });
-      setLocationName('Bhopal Region (Default)');
+      let fallbackLat = 23.2599;
+      let fallbackLon = 77.4126;
+      let fallbackLabel = 'Bhopal Region (Default)';
+      if (userFarms.length > 0 && userFarms[0].centroid) {
+        fallbackLat = userFarms[0].centroid.lat;
+        fallbackLon = userFarms[0].centroid.lon;
+        fallbackLabel = `${userFarms[0].name} Coordinates`;
+      }
+      const coords = { lat: fallbackLat, lon: fallbackLon };
+      setUserCoords(coords);
+      setLocationName(fallbackLabel);
+      sessionStorage.setItem('agrishield_cached_coords', JSON.stringify(coords));
+      sessionStorage.setItem('agrishield_cached_locname', fallbackLabel);
       fetchSatelliteData(fallbackLat, fallbackLon, userFarms[0]?.crop || 'Wheat');
     }
   };
@@ -498,7 +554,7 @@ export default function Dashboard() {
 
         <div className="flex items-center gap-2 self-start md:self-auto">
           <button
-            onClick={() => detectLocationAndFetchSatellite(farms)}
+            onClick={() => detectLocationAndFetchSatellite(farms, true)}
             disabled={isLocating || satelliteLoading}
             className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 active:scale-95 disabled:opacity-50 text-white text-xs font-semibold px-3.5 py-2 rounded-xl border border-white/20 transition-all cursor-pointer"
             title="Update GPS coordinates and re-query Sentinel-2 pass"

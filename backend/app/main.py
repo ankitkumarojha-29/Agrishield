@@ -111,7 +111,8 @@ async def start_periodic_farm_monitor():
     app_logger = logging.getLogger("agrishield.main")
 
     async def periodic_worker():
-        await asyncio.sleep(5)
+        # Stagger startup by 60 seconds so initial user logins and cold-start requests get 100% CPU/bandwidth
+        await asyncio.sleep(60)
         while True:
             try:
                 from db.session import AsyncSessionLocal
@@ -127,6 +128,12 @@ async def start_periodic_farm_monitor():
             await asyncio.sleep(600)
 
     asyncio.create_task(periodic_worker())
+
+
+@app.on_event("shutdown")
+async def shutdown_http_pool():
+    from core.http_client import close_http_client
+    await close_http_client()
 
 
 

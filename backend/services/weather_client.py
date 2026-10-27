@@ -143,10 +143,11 @@ async def get_current_weather(
 
     raw_data: Optional[Dict[str, Any]] = None
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.get(url, params=params)
-            if resp.status_code == 200:
-                raw_data = resp.json()
+        from core.http_client import get_http_client
+        client = get_http_client()
+        resp = await client.get(url, params=params)
+        if resp.status_code == 200:
+            raw_data = resp.json()
     except Exception as e:
         logger.warning("Open-Meteo API query failed: %s; using deterministic agronomic model", e)
 
@@ -185,9 +186,9 @@ def _build_agronomic_weather_and_irrigation(
     et0_sums = daily.get("et0_fao_evapotranspiration", [])
     w_codes = daily.get("weather_code", [])
 
-    # If daily is empty (fallback)
+    # If daily is empty from upstream network glitch, generate real calendar dates from today
     if not dates:
-        dates = [f"2026-09-{13+i:02d}" for i in range(7)]
+        dates = [(now + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
         max_temps = [28.5, 29.0, 27.5, 26.5, 28.0, 29.2, 30.0]
         min_temps = [18.2, 18.8, 17.0, 16.5, 17.2, 18.0, 18.5]
         precip_sums = [0.0, 0.0, 2.5, 0.0, 0.0, 0.0, 0.0]

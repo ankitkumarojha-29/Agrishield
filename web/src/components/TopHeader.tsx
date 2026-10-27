@@ -335,6 +335,9 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
                   localStorage.removeItem('access_token');
                   localStorage.removeItem('user_role');
                   localStorage.removeItem('user_name');
+                  sessionStorage.removeItem('agrishield_cached_coords');
+                  sessionStorage.removeItem('agrishield_cached_locname');
+                  sessionStorage.removeItem('agrishield_cached_satellite');
                   api.invalidateCache();
                   navigate('/login');
                 }}
