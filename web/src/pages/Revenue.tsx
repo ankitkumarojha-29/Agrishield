@@ -18,6 +18,7 @@ import {
 import { api } from '../api';
 import type { Farm } from '../api';
 import { getBilingualCropName } from '../data/agriCatalog';
+import { Skeleton, TableSkeleton } from '../components/common/Skeleton';
 
 const generatePageNumbers = (current: number, total: number): (number | string)[] => {
   if (total <= 7) {
@@ -386,9 +387,14 @@ export default function Revenue() {
 
         {/* Dynamic Commodity Cards */}
         {loadingRegional ? (
-          <div className="py-10 text-center bg-slate-50 rounded-2xl border border-slate-200">
-            <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-            <p className="text-xs text-slate-500">{selectedState} के प्रमुख उत्पादों के दैनिक भाव लोड हो रहे हैं...</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="p-3.5 rounded-xl border border-slate-200/80 bg-white space-y-2">
+                <Skeleton className="h-4 w-12 rounded-sm" />
+                <Skeleton className="h-4 w-16 rounded-md" />
+                <Skeleton className="h-5 w-20 rounded-md" />
+              </div>
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
@@ -693,9 +699,23 @@ export default function Revenue() {
         </div>
 
         {loadingArrivals ? (
-          <div className="py-12 text-center">
-            <div className="w-7 h-7 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-            <p className="text-xs text-slate-400">Fetching daily APMC spot rates from Agmarknet...</p>
+          <div className="overflow-hidden border border-slate-200/80 rounded-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="px-4 py-3">Mandi / Market</th>
+                    <th className="px-4 py-3">District / State</th>
+                    <th className="px-4 py-3">Commodity &amp; Variety</th>
+                    <th className="px-4 py-3">Modal Spot Price</th>
+                    <th className="px-4 py-3">Daily Range (Min - Max)</th>
+                    <th className="px-4 py-3">Arrival Date</th>
+                    <th className="px-4 py-3 text-right">MSP Status</th>
+                  </tr>
+                </thead>
+              </table>
+            </div>
+            <TableSkeleton rows={8} columns={7} />
           </div>
         ) : filteredArrivals.length === 0 ? (
           <div className="py-12 text-center border border-dashed border-slate-200 rounded-xl text-xs text-slate-500">

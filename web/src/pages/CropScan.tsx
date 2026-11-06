@@ -12,6 +12,7 @@ import { api } from '../api';
 import type { CropHealthResult } from '../api';
 import { CropSearchSelect } from '../components/CropSearchSelect';
 import { AIScanLoader, LaserScanOverlay } from '../components/common/AIScanLoader';
+import { LiveCameraModal } from '../components/common/LiveCameraModal';
 
 export default function CropScan() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -21,8 +22,19 @@ export default function CropScan() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CropHealthResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLiveCapture = (file: File, url: string) => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(file);
+    setPreviewUrl(url);
+    setResult(null);
+    setError(null);
+  };
 
   useEffect(() => {
     return () => {
@@ -130,8 +142,8 @@ export default function CropScan() {
             <div className="grid grid-cols-2 gap-3 mb-4">
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
-                className="py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-sm transition-all"
+                onClick={() => setIsCameraOpen(true)}
+                className="py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
               >
                 <Camera size={20} />
                 <span>📸 लाइव कैमरा (Live Camera)</span>
@@ -140,7 +152,7 @@ export default function CropScan() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="py-3 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex flex-col items-center justify-center gap-1.5 border border-slate-200 transition-all"
+                className="py-3 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex flex-col items-center justify-center gap-1.5 border border-slate-200 transition-all cursor-pointer"
               >
                 <UploadCloud size={20} className="text-emerald-700" />
                 <span>📁 गैलरी से चुनें (Gallery)</span>
@@ -149,9 +161,11 @@ export default function CropScan() {
 
             {/* Image Preview Box */}
             <div 
-              onClick={() => cameraInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[200px] ${
-                previewUrl ? 'border-emerald-400 bg-emerald-50/20' : 'border-slate-200 hover:border-emerald-400 bg-slate-50/50'
+              onClick={() => {
+                if (!previewUrl) setIsCameraOpen(true);
+              }}
+              className={`border-2 border-dashed rounded-xl p-5 text-center transition-all flex flex-col items-center justify-center min-h-[200px] ${
+                previewUrl ? 'border-emerald-400 bg-emerald-50/20' : 'border-slate-200 hover:border-emerald-400 bg-slate-50/50 cursor-pointer'
               }`}
             >
               {previewUrl ? (
@@ -165,9 +179,28 @@ export default function CropScan() {
                     />
                     {loading && <LaserScanOverlay />}
                   </div>
-                  <span className="mt-2 text-xs text-emerald-700 font-bold hover:underline flex items-center gap-1">
-                    <Camera size={14} /> दूसरी फोटो खींचें (Retake Photo)
-                  </span>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsCameraOpen(true);
+                      }}
+                      className="text-xs text-emerald-700 font-bold hover:bg-emerald-100 flex items-center gap-1 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
+                    >
+                      <Camera size={13} /> नया लाइव फोटो खींचें (Retake)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fileInputRef.current?.click();
+                      }}
+                      className="text-xs text-slate-600 font-bold hover:bg-slate-200 flex items-center gap-1 bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                    >
+                      <UploadCloud size={13} /> गैलरी (Gallery)
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2 py-4">
@@ -312,6 +345,14 @@ export default function CropScan() {
           )}
         </div>
       </div>
+
+      {/* Live Camera Viewfinder Modal */}
+      <LiveCameraModal
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleLiveCapture}
+        onFallbackToFile={() => fileInputRef.current?.click()}
+      />
     </div>
   );
 }
