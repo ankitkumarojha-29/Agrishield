@@ -353,7 +353,7 @@ export default function AddFarm() {
               </div>
             </div>
 
-            <div className="h-[460px] w-full z-10 relative">
+            <div className="h-[340px] sm:h-[420px] lg:h-[480px] w-full z-10 relative">
               <MapContainer 
                 center={points.length > 0 ? points[0] : (mapCenter || [23.2599, 77.4126])} 
                 zoom={17} 

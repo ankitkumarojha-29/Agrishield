@@ -229,7 +229,7 @@ export default function FarmsMap() {
           </div>
 
           {/* Map Canvas */}
-          <div className="h-[520px] w-full relative z-10">
+          <div className="h-[340px] sm:h-[420px] lg:h-[520px] w-full relative z-10">
             <MapContainer center={mapCenter || defaultCenter} zoom={16} className="w-full h-full">
               <MapRecenter center={mapCenter || userLocation} />
               
@@ -370,7 +370,7 @@ export default function FarmsMap() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-1">
+          <div className="flex flex-col gap-3 max-h-[380px] sm:max-h-[440px] lg:max-h-[500px] overflow-y-auto pr-1">
             {farms.length === 0 ? (
               <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl">
                 <p className="text-slate-500 text-sm mb-3">अभी तक कोई खेत नहीं जुड़ा है (No farms registered yet).</p>
