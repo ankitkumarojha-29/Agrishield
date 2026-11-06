@@ -1,10 +1,11 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
-import { Sprout, Shield, Phone, Mail, Lock, ArrowRight, CheckCircle2, AlertTriangle, KeyRound, RefreshCw, X, ExternalLink } from 'lucide-react';
+import { Sprout, Shield, Phone, Mail, Lock, ArrowRight, CheckCircle2, AlertTriangle, X, ExternalLink } from 'lucide-react';
 import { useUserRole } from '../context/RoleContext';
 import { validateIndianMobile, validatePersonName, validateEmail, validatePassword } from '../utils/validators';
 import { initGoogleSignIn, getGoogleClientId, type GoogleCredentialResponse } from '../utils/googleAuth';
+import { AnimatedOtpInput, OtpCountdownTimer } from '../components/common/AnimatedOtpInput';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -235,12 +236,12 @@ export default function Login() {
   // ──────────────────────────────────────────────────────────────────────────
   // Farmer Flow: Step 2 -> Verify OTP & Enter Portal
   // ──────────────────────────────────────────────────────────────────────────
-  const handleFarmerVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFarmerVerifyOtp = async (e?: React.FormEvent, customOtp?: string) => {
+    if (e) e.preventDefault();
     setLoading(true);
     setError('');
 
-    const cleanOtp = otp.trim();
+    const cleanOtp = (customOtp || otp).trim();
     if (!cleanOtp || cleanOtp.length < 6) {
       setError('कृपया 6-अंकों का ओटीपी दर्ज करें (Please enter 6-digit OTP code).');
       setLoading(false);
@@ -434,15 +435,59 @@ export default function Login() {
                     type="button"
                     onClick={handleManualGoogleClick}
                     disabled={googleLoading}
-                    className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold py-2.5 px-4 rounded-xl text-xs md:text-sm shadow-xs transition-all active:scale-[0.99] disabled:opacity-50"
+                    className={`relative overflow-hidden w-full flex items-center justify-center gap-3 font-semibold py-2.5 px-4 rounded-xl text-xs md:text-sm shadow-xs transition-all active:scale-[0.99] cursor-pointer ${
+                      googleLoading
+                        ? 'bg-slate-50 text-slate-800 border border-sky-300 ring-2 ring-sky-100 shadow-sm'
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300'
+                    }`}
                   >
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                    </svg>
-                    <span>{googleLoading ? 'Connecting to Google...' : 'Continue with Google (गूगल से लॉगिन करें)'}</span>
+                    {googleLoading ? (
+                      <>
+                        {/* Authentic Google 4-Color Indeterminate Rotating Ring */}
+                        <svg className="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="12" r="9" stroke="#E2E8F0" strokeWidth="2.5" />
+                          <path
+                            d="M12 3a9 9 0 0 1 9 9"
+                            stroke="#4285F4"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M21 12a9 9 0 0 1-4.5 7.79"
+                            stroke="#34A853"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M16.5 19.79A9 9 0 0 1 7.5 19.79"
+                            stroke="#FBBC05"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M7.5 19.79A9 9 0 0 1 3 12"
+                            stroke="#EA4335"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <span className="font-bold text-slate-800">
+                          गूगल से कनेक्ट हो रहा है (Connecting to Google...)
+                        </span>
+                        {/* Animated Multi-Color Bottom Border Progress Line */}
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-red-500 via-amber-400 to-emerald-500 animate-pulse rounded-b-xl" />
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                        </svg>
+                        <span>Continue with Google (गूगल से लॉगिन करें)</span>
+                      </>
+                    )}
                   </button>
                 </div>
 
@@ -549,35 +594,30 @@ export default function Login() {
                   </button>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Enter 6-Digit OTP / ओटीपी दर्ज करें
+                <div className="py-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-2.5 text-center">
+                    Enter 6-Digit Verification Code / ओटीपी दर्ज करें
                   </label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input 
-                      required 
-                      type="text" 
-                      maxLength={6}
-                      placeholder="• • • • • •"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-center font-mono text-lg tracking-[0.4em] text-slate-800 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
+                  <AnimatedOtpInput
+                    value={otp}
+                    onChange={(val) => {
+                      setOtp(val);
+                      if (error) setError('');
+                    }}
+                    onComplete={(code) => {
+                      handleFarmerVerifyOtp(undefined, code);
+                    }}
+                    hasError={Boolean(error)}
+                    isVerifying={loading}
+                    autoFocus={true}
+                  />
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
-                  <span>कोड प्राप्त नहीं हुआ?</span>
-                  <button
-                    type="button"
-                    onClick={() => handleFarmerSendOtp()}
-                    className="text-emerald-700 hover:underline font-semibold flex items-center gap-1"
-                  >
-                    <RefreshCw size={11} />
-                    <span>ओटीपी पुनः भेजें (Resend)</span>
-                  </button>
-                </div>
+                <OtpCountdownTimer
+                  initialSeconds={30}
+                  isLoading={loading}
+                  onResend={() => handleFarmerSendOtp()}
+                />
 
                 <button 
                   type="submit" 
@@ -603,13 +643,18 @@ export default function Login() {
               <form onSubmit={handleGoogleLinkPhoneSubmit} className="space-y-4 animate-in fade-in duration-200">
                 {/* Google Identity Verified Banner */}
                 <div className="p-3 bg-sky-50 border border-sky-200 rounded-2xl flex items-center gap-3">
-                  {googleProfile?.avatar_url ? (
-                    <img src={googleProfile.avatar_url} alt="Google Avatar" className="w-10 h-10 rounded-full border border-sky-300 object-cover" width={40} height={40} decoding="async" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-sky-200 text-sky-800 font-bold flex items-center justify-center text-sm">
-                      {googleProfile?.name?.[0] || 'G'}
-                    </div>
-                  )}
+                  <div className="relative shrink-0">
+                    {googleProfile?.avatar_url ? (
+                      <img src={googleProfile.avatar_url} alt="Google Avatar" className="w-10 h-10 rounded-full border border-sky-300 object-cover shadow-2xs" width={40} height={40} decoding="async" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-sky-200 text-sky-800 font-bold flex items-center justify-center text-sm">
+                        {googleProfile?.name?.[0] || 'G'}
+                      </div>
+                    )}
+                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center border-2 border-white shadow-2xs">
+                      <CheckCircle2 size={10} />
+                    </span>
+                  </div>
                   <div className="overflow-hidden">
                     <span className="text-[10px] text-sky-700 font-bold uppercase tracking-wider block">✓ Google खाता सत्यापित</span>
                     <strong className="text-xs text-sky-950 block truncate">{googleProfile?.name || 'Farmer'}</strong>
@@ -682,22 +727,20 @@ export default function Login() {
                 )}
 
                 {/* OTP Input */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Enter OTP / ओटीपी दर्ज करें
+                <div className="py-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-2.5 text-center">
+                    Enter 6-Digit OTP / ओटीपी दर्ज करें
                   </label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input 
-                      required 
-                      type="text" 
-                      maxLength={6}
-                      placeholder="• • • • • •"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-center font-mono text-base tracking-[0.4em] text-slate-800 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
+                  <AnimatedOtpInput
+                    value={otp}
+                    onChange={(val) => {
+                      setOtp(val);
+                      if (error) setError('');
+                    }}
+                    hasError={Boolean(error)}
+                    isVerifying={loading}
+                    autoFocus={true}
+                  />
                 </div>
 
                 {/* Buttons: Submit & Cancel */}

@@ -11,6 +11,7 @@ import {
 import { api } from '../api';
 import type { CropHealthResult } from '../api';
 import { CropSearchSelect } from '../components/CropSearchSelect';
+import { AIScanLoader, LaserScanOverlay } from '../components/common/AIScanLoader';
 
 export default function CropScan() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -155,12 +156,15 @@ export default function CropScan() {
             >
               {previewUrl ? (
                 <div className="relative group w-full flex flex-col items-center">
-                  <img 
-                    src={previewUrl} 
-                    alt="Leaf Preview" 
-                    className="max-h-52 max-w-full rounded-xl object-contain shadow-xs" 
-                    decoding="async"
-                  />
+                  <div className="relative inline-block max-h-52 max-w-full">
+                    <img 
+                      src={previewUrl} 
+                      alt="Leaf Preview" 
+                      className="max-h-52 max-w-full rounded-xl object-contain shadow-xs" 
+                      decoding="async"
+                    />
+                    {loading && <LaserScanOverlay />}
+                  </div>
                   <span className="mt-2 text-xs text-emerald-700 font-bold hover:underline flex items-center gap-1">
                     <Camera size={14} /> दूसरी फोटो खींचें (Retake Photo)
                   </span>
@@ -235,7 +239,13 @@ export default function CropScan() {
 
         {/* Right Column: AI Diagnosis Results (6 cols) */}
         <div className="lg:col-span-6">
-          {result ? (
+          {loading ? (
+            <AIScanLoader 
+              mode="crop" 
+              title="पत्ती रोग AI जांच (Crop Health Analysis)"
+              subtitle="PyTorch EfficientNet-B0 pathology analysis in progress..."
+            />
+          ) : result ? (
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5 animate-in fade-in duration-300">
               {/* Diagnosis Badge */}
               <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">

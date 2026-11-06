@@ -91,3 +91,52 @@ body {
   color: #075985;
   border: 1px solid #bae6fd;
 }
+
+/* AgriShield Advanced Loading Animations */
+@keyframes laserScan {
+  0% {
+    top: 2%;
+    opacity: 0.6;
+  }
+  50% {
+    top: 94%;
+    opacity: 1;
+  }
+  100% {
+    top: 2%;
+    opacity: 0.6;
+  }
+}
+
+.animate-laser-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, #10b981 30%, #34d399 50%, #10b981 70%, transparent 100%);
+  box-shadow: 0 0 14px #10b981, 0 0 28px rgba(16, 185, 129, 0.6);
+  animation: laserScan 2.4s ease-in-out infinite;
+}
+
+/* OTP Verification Animations */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.animate-shake {
+  animation: shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.75); opacity: 0; }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-pop-in {
+  animation: popIn 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+

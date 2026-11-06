@@ -15,6 +15,8 @@ import {
 import { api } from '../api';
 import type { SoilAnalysisResult, Farm } from '../api';
 import { CROPS_CATALOG, fetchCropsCatalog, getBilingualCropName, type CropInfo } from '../data/agriCatalog';
+import { AIScanLoader } from '../components/common/AIScanLoader';
+import { Skeleton } from '../components/common/Skeleton';
 
 // Agronomic crop definitions and specific nutrient demands
 interface CropProfile {
@@ -731,7 +733,13 @@ export default function SoilAnalysis() {
 
         {/* Right Column: Extracted Nutrients & Tailored Fertilizer Results (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
-          {result ? (
+          {loading ? (
+            <AIScanLoader
+              mode="soil"
+              title="सॉइल कार्ड OCR विश्लेषण (Soil Card OCR Extraction)"
+              subtitle="Reading optical metrics, N-P-K concentrations & pH benchmarks..."
+            />
+          ) : result ? (
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6 animate-in fade-in duration-300">
               {/* Header with Card Metadata */}
               <div className="border-b border-slate-100 pb-4 space-y-2">
@@ -1061,9 +1069,10 @@ export default function SoilAnalysis() {
         </div>
 
         {loadingReports ? (
-          <div className="py-8 text-center">
-            <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-            <p className="text-xs text-slate-400">डेटाबेस से मृदा रिपोर्ट लोड हो रही हैं...</p>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Skeleton className="h-36 w-full rounded-xl" />
+            <Skeleton className="h-36 w-full rounded-xl" />
+            <Skeleton className="h-36 w-full rounded-xl" />
           </div>
         ) : savedReports.length === 0 ? (
           <div className="p-8 text-center border border-dashed border-slate-200 rounded-xl text-xs text-slate-500">

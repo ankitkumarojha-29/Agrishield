@@ -24,6 +24,7 @@ import { useUserRole } from '../context/RoleContext';
 import { api } from '../api';
 import { CROPS_CATALOG, fetchCropsCatalog, type CropInfo } from '../data/agriCatalog';
 import { formatFullNotificationTimestamp } from '../utils/dateUtils';
+import { Skeleton } from '../components/common/Skeleton';
 
 export interface AlertItem {
   id: string;
@@ -413,9 +414,10 @@ export default function Alerts() {
 
       {/* Alerts Feed */}
       {loading ? (
-        <div className="bg-white border rounded-2xl p-12 text-center text-slate-500 text-xs">
-          <RefreshCw size={24} className="animate-spin text-emerald-600 mx-auto mb-2" />
-          <p className="font-bold text-slate-700">अलर्ट लोड हो रहे हैं...</p>
+        <div className="space-y-4">
+          <Skeleton className="h-28 w-full rounded-2xl" />
+          <Skeleton className="h-28 w-full rounded-2xl" />
+          <Skeleton className="h-28 w-full rounded-2xl" />
         </div>
       ) : filteredAlerts.length === 0 ? (
         /* Empty State */

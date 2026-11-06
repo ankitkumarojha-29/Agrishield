@@ -22,6 +22,7 @@ import type { Farmer, Farm, FarmerOverview } from '../api';
 import { Link } from 'react-router-dom';
 import { DEFAULT_AVATAR } from '../context/RoleContext';
 import { CROPS_CATALOG, fetchCropsCatalog, type CropInfo } from '../data/agriCatalog';
+import { TableSkeleton, Skeleton } from '../components/common/Skeleton';
 
 const generatePageNumbers = (current: number, total: number): (number | string)[] => {
   if (total <= 7) {
@@ -292,9 +293,23 @@ export default function Farmers() {
       {/* Farmers Table */}
       <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center">
-            <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-xs text-slate-500 font-medium">Loading farmer registry...</p>
+          <div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                    <th className="px-5 py-3.5">Farmer Profile</th>
+                    <th className="px-5 py-3.5">Phone & Contact</th>
+                    <th className="px-5 py-3.5">Farm Parcels</th>
+                    <th className="px-5 py-3.5">Crops Cultivated</th>
+                    <th className="px-5 py-3.5">Total Area</th>
+                    <th className="px-5 py-3.5">Status</th>
+                    <th className="px-5 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+              </table>
+            </div>
+            <TableSkeleton rows={pageSize > 10 ? 8 : pageSize} columns={7} />
           </div>
         ) : filteredFarmers.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
@@ -585,9 +600,9 @@ export default function Farmers() {
                 )}
 
                 {loadingFarms ? (
-                  <div className="p-8 text-center">
-                    <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-xs text-slate-400">Fetching farm boundaries...</p>
+                  <div className="space-y-3 p-1">
+                    <Skeleton className="h-24 w-full rounded-xl" />
+                    <Skeleton className="h-24 w-full rounded-xl" />
                   </div>
                 ) : farmerFarms.length === 0 ? (
                   <div className="p-6 text-center border border-dashed border-slate-200 rounded-xl text-xs text-slate-500">

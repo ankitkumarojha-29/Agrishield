@@ -23,6 +23,7 @@ import {
 import { api } from '../api';
 import type { Farm, AdminStats, Farmer, SatelliteIndices } from '../api';
 import { useUserRole } from '../context/RoleContext';
+import { DashboardSkeleton } from '../components/common/Skeleton';
 
 export default function Dashboard() {
   const { role, userName } = useUserRole();
@@ -199,11 +200,7 @@ export default function Dashboard() {
   }, [role]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-      </div>
-    );
+    return <DashboardSkeleton role={role === 'admin' ? 'admin' : 'farmer'} />;
   }
 
   // ══════════════════════════════════════════════════════════════════════════════

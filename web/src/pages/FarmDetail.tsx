@@ -25,6 +25,7 @@ import { api } from '../api';
 import type { Farm, SatelliteIndices, FarmYieldResult, FarmRiskResult, FarmAdvisoryResult } from '../api';
 import { CropSearchSelect } from '../components/CropSearchSelect';
 import { SoilTypeSelect } from '../components/SoilTypeSelect';
+import { FarmDetailSkeleton } from '../components/common/Skeleton';
 
 const CROP_BENCHMARK_MSP: Record<string, number> = {
   'wheat': 2425,
@@ -176,12 +177,7 @@ export default function FarmDetail() {
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500 gap-3">
-        <div className="w-10 h-10 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-medium">Aggregating Sentinel-2 satellite & weather intelligence...</p>
-      </div>
-    );
+    return <FarmDetailSkeleton />;
   }
 
   if (error || !farm) {

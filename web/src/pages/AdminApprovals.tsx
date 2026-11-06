@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import type { PendingAdmin, ActiveAdmin } from '../api';
+import { TableSkeleton } from '../components/common/Skeleton';
 
 export default function AdminApprovals() {
   const [pendingAdmins, setPendingAdmins] = useState<PendingAdmin[]>([]);
@@ -255,9 +256,8 @@ export default function AdminApprovals() {
           </div>
 
           {loading ? (
-            <div className="p-12 text-center">
-              <div className="w-8 h-8 border-3 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-              <p className="text-xs text-slate-400 font-medium">Checking pending applications...</p>
+            <div className="p-2">
+              <TableSkeleton rows={4} columns={6} />
             </div>
           ) : filteredPending.length === 0 ? (
             <div className="p-12 text-center text-slate-400 text-xs">
