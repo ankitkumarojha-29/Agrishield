@@ -46,31 +46,31 @@ export function AIScanLoader({
   const steps = stepsByMode[mode] || stepsByMode.crop;
 
   return (
-    <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden border border-emerald-500/30">
+    <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-6 shadow-xl relative overflow-hidden border border-emerald-500/30">
       {/* Background glowing ambient light */}
       <div className="absolute -top-12 -right-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800 relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 relative">
-            <ScanLine size={20} className="animate-pulse" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800 relative z-10">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 relative shrink-0">
+            <ScanLine size={18} className="animate-pulse" />
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
           </div>
           <div>
-            <h3 className="font-bold text-sm md:text-base text-slate-100 flex items-center gap-2">
-              {title}
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            <h3 className="font-bold text-xs sm:text-sm md:text-base text-slate-100 flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span>{title}</span>
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                 PyTorch Port 8001
               </span>
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>
+            <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 leading-snug">{subtitle}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold bg-emerald-950/60 px-3 py-1.5 rounded-lg border border-emerald-500/20">
-          <Sparkles size={14} className="animate-spin text-emerald-400" />
+        <div className="self-start sm:self-auto flex items-center gap-1.5 text-[11px] sm:text-xs text-emerald-400 font-semibold bg-emerald-950/60 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-emerald-500/20">
+          <Sparkles size={13} className="animate-spin text-emerald-400" />
           <span>Active</span>
         </div>
       </div>

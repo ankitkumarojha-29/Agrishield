@@ -151,36 +151,36 @@ export function LiveCameraModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-800 flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full max-w-2xl max-h-[92vh] bg-slate-900 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-slate-800 flex flex-col">
         {/* Shutter White Flash Effect */}
         {shutterFlash && (
           <div className="absolute inset-0 bg-white z-50 pointer-events-none animate-out fade-out duration-150" />
         )}
 
         {/* Top Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-slate-900/95 border-b border-slate-800 z-20">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-900/95 border-b border-slate-800 z-20 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
               <Camera size={16} />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                <span>लाइव पत्ती कैमरा (Live Leaf Camera)</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            <div className="min-w-0">
+              <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 truncate">
+                <span>लाइव पत्ती कैमरा (Live Camera)</span>
+                <span className="text-[9px] sm:text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   LIVE
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-400">रोगी पत्ती को केंद्र में रखकर फोटो लें</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">रोगी पत्ती को केंद्र में रखकर फोटो लें</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {!capturedPreview && !cameraError && (
               <button
                 type="button"
                 onClick={toggleFacingMode}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
                 title="कैमरा बदलें (Switch Camera)"
               >
                 <SwitchCamera size={16} />
@@ -192,7 +192,7 @@ export function LiveCameraModal({
                 stopStream();
                 onClose();
               }}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
               title="बंद करें (Close)"
             >
               <X size={16} />
@@ -201,7 +201,7 @@ export function LiveCameraModal({
         </div>
 
         {/* Camera Viewport / Frame */}
-        <div className="relative w-full aspect-4/3 sm:aspect-16/10 bg-black flex items-center justify-center overflow-hidden">
+        <div className="relative w-full max-h-[58vh] sm:max-h-[65vh] aspect-4/3 sm:aspect-16/10 bg-black flex items-center justify-center overflow-hidden">
           {cameraError ? (
             <div className="p-6 text-center max-w-md mx-auto space-y-3 z-10">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
@@ -286,7 +286,7 @@ export function LiveCameraModal({
         </div>
 
         {/* Bottom Shutter & Action Bar */}
-        <div className="px-6 py-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between shrink-0">
           {capturedPreview ? (
             /* Confirm or Retake Bar */
             <div className="w-full flex items-center justify-between gap-3">
@@ -331,3 +331,4 @@ export function LiveCameraModal({
     </div>
   );
 }
+

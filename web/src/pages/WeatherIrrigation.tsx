@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import type { Farm } from '../api';
+import { WeatherIrrigationSkeleton } from '../components/common/Skeleton';
 
 export default function WeatherIrrigation() {
   const [farms, setFarms] = useState<Farm[]>([]);
@@ -96,6 +97,10 @@ export default function WeatherIrrigation() {
         return <Cloud className={`${className} text-slate-400`} />;
     }
   };
+
+  if (loading && !weather) {
+    return <WeatherIrrigationSkeleton />;
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in duration-300 pb-12">
@@ -360,8 +365,7 @@ export default function WeatherIrrigation() {
             { day: 'दिन 3', weekday_hi: 'बुधवार', icon: 'CloudRain', temp: '27° / 17°', rain: '2 mm', advice: 'जांचें (Review)', color: 'bg-amber-50 text-amber-800 border-amber-200' },
             { day: 'दिन 4', weekday_hi: 'गुरुवार', icon: 'Droplets', temp: '26° / 16°', rain: '0 mm', advice: 'पानी दें (Water)', color: 'bg-sky-50 text-sky-800 border-sky-200' },
             { day: 'दिन 5', weekday_hi: 'शुक्रवार', icon: 'Sun', temp: '28° / 17°', rain: '0 mm', advice: 'पानी दें (Water)', color: 'bg-sky-50 text-sky-800 border-sky-200' },
-          ]).map((item: any, i: number) => {
-            return (
+          ]).map((item: any, i: number) => (
               <div key={i} className={`p-3.5 rounded-2xl border ${item.color} flex flex-col justify-between space-y-2 transition-all hover:shadow-xs`}>
                 <div>
                   <span className="text-xs font-extrabold text-slate-800 block">{item.day}</span>
@@ -384,8 +388,7 @@ export default function WeatherIrrigation() {
                   {item.advice}
                 </span>
               </div>
-            );
-          })}
+          ))}
         </div>
       </div>
 

@@ -141,7 +141,7 @@ export function AnimatedOtpInput({
     <div className="space-y-3">
       {/* 6-Slot Segmented Grid with Divider */}
       <div
-        className={`flex items-center justify-center gap-2 sm:gap-2.5 ${
+        className={`flex items-center justify-center gap-1.5 sm:gap-2.5 max-w-full ${
           hasError ? 'animate-shake' : ''
         }`}
       >
@@ -154,7 +154,7 @@ export function AnimatedOtpInput({
             <React.Fragment key={idx}>
               {/* Mid-point visual hyphen divider for 3-3 grouping */}
               {idx === 3 && (
-                <div className="w-2 sm:w-3 h-0.5 bg-slate-300 rounded-full mx-0.5" />
+                <div className="w-1.5 sm:w-2.5 h-0.5 bg-slate-300 rounded-full mx-0.5 shrink-0" />
               )}
 
               <div
@@ -164,13 +164,13 @@ export function AnimatedOtpInput({
                     setFocusedIndex(idx);
                   }
                 }}
-                className={`relative w-11 h-13 sm:w-12 sm:h-14 rounded-2xl flex items-center justify-center text-center font-mono text-xl sm:text-2xl font-black transition-all duration-200 cursor-text select-none ${
+                className={`relative w-9 h-12 xs:w-10 xs:h-13 sm:w-12 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center text-center font-mono text-lg sm:text-2xl font-black transition-all duration-200 cursor-text select-none shrink-0 ${
                   hasError
                     ? 'border-2 border-red-400 bg-red-50/50 text-red-700 ring-2 ring-red-400/20'
                     : isVerifying
                     ? 'border-2 border-emerald-400 bg-emerald-50/30 text-emerald-800'
                     : isFocused
-                    ? 'border-2 border-emerald-500 bg-white text-slate-900 ring-3 ring-emerald-500/20 shadow-md shadow-emerald-500/10 scale-105'
+                    ? 'border-2 border-emerald-500 bg-white text-slate-900 ring-2 sm:ring-3 ring-emerald-500/20 shadow-md shadow-emerald-500/10 scale-105'
                     : isFilled
                     ? 'border border-emerald-200/90 bg-emerald-50/20 text-slate-900 shadow-2xs'
                     : 'border border-slate-200/90 bg-slate-50/80 text-slate-400 hover:border-slate-300'

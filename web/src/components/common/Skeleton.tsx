@@ -162,6 +162,71 @@ export function DashboardSkeleton({ role = 'farmer' }: { role?: 'farmer' | 'admi
 }
 
 /**
+ * Weather & Irrigation Skeleton for agro-meteorological advisories
+ */
+export function WeatherIrrigationSkeleton() {
+  return (
+    <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in duration-200 pb-12">
+      {/* Header Skeleton */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-5 w-36 rounded-full" />
+            <Skeleton className="h-5 w-24 rounded-full" />
+          </div>
+          <Skeleton className="h-8 w-64 md:w-80 rounded-xl" />
+          <Skeleton className="h-4 w-72 md:w-96 rounded-md" />
+        </div>
+        <Skeleton className="h-10 w-48 rounded-2xl" />
+      </div>
+
+      {/* Large Irrigation Decision Card */}
+      <div className="rounded-3xl p-6 md:p-8 border border-slate-200 bg-white space-y-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-3 flex-1">
+            <Skeleton className="h-6 w-36 rounded-full" />
+            <Skeleton className="h-10 w-3/4 rounded-xl" />
+            <Skeleton className="h-4 w-full rounded-md" />
+            <Skeleton className="h-4 w-2/3 rounded-md" />
+            <div className="flex gap-3 pt-2">
+              <Skeleton className="h-7 w-32 rounded-lg" />
+              <Skeleton className="h-7 w-24 rounded-lg" />
+            </div>
+          </div>
+          <Skeleton className="w-36 h-36 rounded-2xl shrink-0" />
+        </div>
+      </div>
+
+      {/* 4 Mini Weather Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+      </div>
+
+      {/* 7-Day Forecast Strip */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-5 w-40 rounded-lg" />
+          <Skeleton className="h-4 w-24 rounded-md" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 pt-2">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/60 space-y-2 text-center">
+              <Skeleton className="h-3 w-12 mx-auto rounded-sm" />
+              <Skeleton className="w-8 h-8 mx-auto rounded-full" />
+              <Skeleton className="h-4 w-10 mx-auto rounded-md" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/**
  * Farm Detail Skeleton for Sentinel-2, GIS polygon, and agro-weather inspection
  */
 export function FarmDetailSkeleton() {
@@ -223,4 +288,5 @@ export function FarmDetailSkeleton() {
     </div>
   );
 }
+
 
