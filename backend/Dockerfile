@@ -2,12 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies required for GeoAlchemy, Shapely, PyProj, and asyncpg
+# Install system dependencies required for GeoAlchemy, Shapely, PyProj, asyncpg, and Pillow
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     libgeos-dev \
     libproj-dev \
+    libjpeg-dev \
+    zlib1g-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
