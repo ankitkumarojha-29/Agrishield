@@ -127,7 +127,26 @@ async def start_periodic_farm_monitor():
                 app_logger.warning(f"Background farm monitor iteration error: {e}")
             await asyncio.sleep(600)
 
+    async def periodic_ai_reconciler():
+        # Stagger startup by 30 seconds, then check every 90 seconds
+        # When AI tunnel is turned on, automatically re-analyzes scans taken during offline mode
+        await asyncio.sleep(30)
+        while True:
+            try:
+                from db.session import AsyncSessionLocal
+                from services.ai_reconciliation_service import reconcile_pending_crop_scans
+                async with AsyncSessionLocal() as session:
+                    reconciled = await reconcile_pending_crop_scans(session)
+                    if reconciled > 0:
+                        app_logger.info(f"AI Auto-Reconciler re-analyzed and updated {reconciled} scan(s) using live PyTorch model.")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                app_logger.debug(f"AI Auto-Reconciler pass: {e}")
+            await asyncio.sleep(90)
+
     asyncio.create_task(periodic_worker())
+    asyncio.create_task(periodic_ai_reconciler())
 
 
 @app.on_event("shutdown")

@@ -582,6 +582,24 @@ export const api = {
     }
   },
 
+  getAiTunnelStatus: async (): Promise<Envelope<{ is_online: boolean; service_url: string; mode: string; model: string }>> => {
+    try {
+      const res = await apiClient.get('/admin/ai-tunnel-status');
+      return res.data;
+    } catch (err) {
+      return createMockResponse({ is_online: false, service_url: '', mode: 'offline_fallback', model: 'mock-v1' });
+    }
+  },
+
+  triggerReconcileScans: async (): Promise<Envelope<{ success: boolean; reconciled_count: number; message: string }>> => {
+    try {
+      const res = await apiClient.post('/admin/reconcile-scans');
+      return res.data;
+    } catch (err) {
+      return createErrorResponse(err, 'Failed to trigger scan reconciliation');
+    }
+  },
+
   resolveMediaUrl: (url?: string): string => {
     if (!url) return '';
     if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {

@@ -388,3 +388,30 @@ async def broadcast_alert(
         "title": req.title,
         "timestamp": datetime.now(timezone.utc).isoformat()
     })
+
+@router.get("/ai-tunnel-status")
+async def get_ai_tunnel_status(admin: User = Depends(get_admin_user)):
+    """Returns real-time connectivity status of the AI microservice / tunnel."""
+    from services.ai_reconciliation_service import is_ai_service_online
+    from core.config import settings
+    online = await is_ai_service_online()
+    return _ok({
+        "is_online": online,
+        "service_url": settings.AI_SERVICE_URL,
+        "mode": "live_tunnel" if online else "offline_fallback",
+        "model": "EfficientNet-B0 (PyTorch)" if online else "mock-v1 (fallback)",
+    })
+
+@router.post("/reconcile-scans")
+async def trigger_reconcile_scans(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Manually triggers retrospective inference on any scans that were submitted while tunnel was offline."""
+    from services.ai_reconciliation_service import reconcile_pending_crop_scans
+    reconciled_count = await reconcile_pending_crop_scans(db, batch_limit=50)
+    return _ok({
+        "success": True,
+        "reconciled_count": reconciled_count,
+        "message": f"Successfully re-analyzed {reconciled_count} scan(s) using live PyTorch model." if reconciled_count > 0 else "No pending fallback scans require re-analysis (or AI tunnel is currently offline)."
+    })

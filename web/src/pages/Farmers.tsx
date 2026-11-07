@@ -18,7 +18,8 @@ import {
   ChevronsRight,
   Eye,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import { api } from '../api';
 import type { Farmer, Farm, FarmerOverview } from '../api';
@@ -59,6 +60,28 @@ export default function Farmers() {
   const [plotSearch, setPlotSearch] = useState('');
   const [previewModalImage, setPreviewModalImage] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileMessage, setReconcileMessage] = useState<string | null>(null);
+
+  const handleReconcileScans = async () => {
+    setReconciling(true);
+    setReconcileMessage(null);
+    try {
+      const res = await api.triggerReconcileScans();
+      if (res.success && res.data) {
+        setReconcileMessage(res.data.message);
+        if (selectedFarmer) {
+          handleInspectFarmer(selectedFarmer);
+        }
+      } else {
+        setReconcileMessage('AI tunnel offline or no pending scans to reconcile.');
+      }
+    } catch {
+      setReconcileMessage('AI service is currently offline. Will auto-sync when tunnel connects.');
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   useEffect(() => {
     fetchCropsCatalog().then(data => {
@@ -207,13 +230,41 @@ export default function Farmers() {
           </p>
         </div>
 
-        <button
-          onClick={handleExportCSV}
-          className="inline-flex items-center gap-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs md:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-2xs transition-all"
-        >
-          <Download size={16} className="text-slate-600" /> Export CSV Directory
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleReconcileScans}
+            disabled={reconciling}
+            className="inline-flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs md:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
+            title="Auto-reanalyzes scans that were processed while AI tunnel was offline"
+          >
+            <RefreshCw size={15} className={reconciling ? "animate-spin text-emerald-700" : "text-emerald-700"} />
+            <span>{reconciling ? "Re-analyzing Scans..." : "Sync Offline AI Scans"}</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs md:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-2xs transition-all cursor-pointer"
+          >
+            <Download size={16} className="text-slate-600" /> Export CSV Directory
+          </button>
+        </div>
       </div>
+
+      {reconcileMessage && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-2 font-medium">
+            <Sparkles size={16} className="text-emerald-700 shrink-0" />
+            <span>{reconcileMessage}</span>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setReconcileMessage(null)}
+            className="text-emerald-700 hover:text-emerald-950 p-1 rounded-md cursor-pointer"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* KPI Overview Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

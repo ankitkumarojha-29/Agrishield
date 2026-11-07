@@ -18,8 +18,11 @@ import { CropSearchSelect } from '../components/CropSearchSelect';
 import { AIScanLoader, LaserScanOverlay } from '../components/common/AIScanLoader';
 import { LiveCameraModal } from '../components/common/LiveCameraModal';
 import { compressImage, formatBytes } from '../utils/imageCompressor';
+import { useUserRole } from '../context/RoleContext';
 
 export default function CropScan() {
+  const { role } = useUserRole();
+  const isAdmin = role === 'admin';
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [compressionInfo, setCompressionInfo] = useState<{ original: string; compressed: string; savings: number } | null>(null);
@@ -394,17 +397,24 @@ export default function CropScan() {
                 </div>
 
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Model Engine</span>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">AI Diagnostic Engine</span>
                   <div className="mt-1 flex items-center gap-1.5">
-                    {result.model_version && !result.model_version.toLowerCase().includes('mock') ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Live AI ({result.model_version})
-                      </span>
+                    {isAdmin ? (
+                      result.model_version && !result.model_version.toLowerCase().includes('mock') ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          Live PyTorch ({result.model_version})
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold" title="Auto-reconciles when AI tunnel is connected">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                          Offline Queue ({result.model_version || 'mock-v1'})
+                        </span>
+                      )
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                        Fallback ({result.model_version || 'mock-v1'})
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200">
+                        <Sparkles size={12} className="text-emerald-600" />
+                        AgriShield Precision AI (B0)
                       </span>
                     )}
                   </div>
@@ -530,9 +540,9 @@ export default function CropScan() {
                   <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
                       <span>विश्वास: <strong className="text-slate-800">{Math.round((scan.confidence || 0.9) * 100)}%</strong></span>
-                      {scan.model_version && (
+                      {isAdmin && scan.model_version && (
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${scan.model_version.includes('mock') ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                          {scan.model_version.includes('mock') ? 'Fallback' : 'Live AI'}
+                          {scan.model_version.includes('mock') ? 'Queue' : 'Live'}
                         </span>
                       )}
                     </span>
