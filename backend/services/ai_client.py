@@ -12,7 +12,7 @@ class AIClient(ABC):
     async def get_damage_assessment(self, image_bytes: bytes, crop: str, event_type: str) -> Dict[str, Any]: pass
 
     @abstractmethod
-    async def get_yield_prediction(self, crop: str, area_ha: float, weather: dict, soil: dict, satellite: dict, boundary_coordinates: list = None, centroid_lat: float = None, centroid_lon: float = None) -> Dict[str, Any]: pass
+    async def get_yield_prediction(self, crop: str, area_ha: float, weather: dict, soil: dict, satellite: dict, boundary_coordinates: list = None, centroid_lat: float = None, centroid_lon: float = None, sowing_date: str = None) -> Dict[str, Any]: pass
 
     @abstractmethod
     async def get_risk_score(self, crop: str, area_ha: float, weather: dict, soil: dict, satellite: dict, history: dict, boundary_coordinates: list = None, centroid_lat: float = None, centroid_lon: float = None) -> Dict[str, Any]: pass
@@ -40,7 +40,7 @@ class MockAIClient(AIClient):
             "low_confidence": False, "inference_ms": 12,
         }
 
-    async def get_yield_prediction(self, crop, area_ha, weather, soil, satellite, boundary_coordinates=None, centroid_lat=None, centroid_lon=None):
+    async def get_yield_prediction(self, crop, area_ha, weather, soil, satellite, boundary_coordinates=None, centroid_lat=None, centroid_lon=None, sowing_date=None):
         return {
             "yield_value": 3200.0, "unit": "kg/ha",
             "model_version": "mock-v1", "confidence": 0.82,
@@ -117,7 +117,7 @@ class HttpAIClient(AIClient):
             logger.warning("AI get_damage_assessment failed: %s, using fallback", e)
             return await self._fallback.get_damage_assessment(image_bytes, crop, event_type)
 
-    async def get_yield_prediction(self, crop: str, area_ha: float, weather: dict, soil: dict, satellite: dict, boundary_coordinates: list = None, centroid_lat: float = None, centroid_lon: float = None):
+    async def get_yield_prediction(self, crop: str, area_ha: float, weather: dict, soil: dict, satellite: dict, boundary_coordinates: list = None, centroid_lat: float = None, centroid_lon: float = None, sowing_date: str = None):
         try:
             if centroid_lat is None or centroid_lon is None:
                 centroid_lat = 23.2599
@@ -130,10 +130,13 @@ class HttpAIClient(AIClient):
                     [centroid_lon - 0.005, centroid_lat + 0.005],
                     [centroid_lon - 0.005, centroid_lat - 0.005],
                 ]
+            if not sowing_date:
+                from datetime import datetime, timezone
+                sowing_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             payload = {
                 "crop": (crop or "wheat").strip().lower(),
                 "area_ha": area_ha,
-                "sowing_date": "2026-06-01",
+                "sowing_date": sowing_date,
                 "rainfall": weather.get("rainfall", 80),
                 "rainfall_7d": weather.get("rainfall_7d", 20),
                 "rainfall_30d": weather.get("rainfall_30d", 80),
@@ -167,7 +170,7 @@ class HttpAIClient(AIClient):
                 return r.json()
         except Exception as e:
             logger.warning("AI get_yield_prediction failed: %s, using fallback", e)
-            return await self._fallback.get_yield_prediction(crop, area_ha, weather, soil, satellite, boundary_coordinates, centroid_lat, centroid_lon)
+            return await self._fallback.get_yield_prediction(crop, area_ha, weather, soil, satellite, boundary_coordinates, centroid_lat, centroid_lon, sowing_date=sowing_date)
 
     async def get_risk_score(self, crop: str, area_ha: float, weather: dict, soil: dict, satellite: dict, history: dict, boundary_coordinates: list = None, centroid_lat: float = None, centroid_lon: float = None):
         try:

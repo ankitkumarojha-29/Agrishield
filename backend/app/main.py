@@ -221,8 +221,8 @@ def get_meta():
         "model_versions": {
             "yield": "yield-v1.0.0",
             "risk": "risk-v1.0.0",
-            "crop_health": "mock-crop-v1",
-            "damage": "mock-damage-v1",
+            "crop_health": "effnet-crop-v1",
+            "damage": "effnet-damage-v1",
             "soil_ocr": "easyocr-v1.0",
             "advisory": "advisory-rules-v1.0"
         }

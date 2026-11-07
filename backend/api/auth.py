@@ -240,9 +240,10 @@ async def verify_otp(req: VerifyOtpRequest, db: AsyncSession = Depends(get_db)):
     stored = OTP_STORE.get(phone_normalized)
     now = datetime.utcnow()
     
+    is_dev_mode = (settings.OTP_MODE or "development").strip().lower() != "production"
     is_valid = False
-    # Valid if matches in-memory OTP or universal dev fallback 123456
-    if input_otp == "123456":
+    # Valid if matches in-memory OTP, or universal test fallback 123456 in dev/demo mode only
+    if is_dev_mode and input_otp == "123456":
         is_valid = True
     elif stored and stored["expires_at"] > now and stored["otp"] == input_otp:
         is_valid = True
@@ -387,8 +388,9 @@ async def google_link_phone(req: GoogleLinkPhoneRequest, db: AsyncSession = Depe
 
     stored = OTP_STORE.get(phone_normalized)
     now = datetime.utcnow()
+    is_dev_mode = (settings.OTP_MODE or "development").strip().lower() != "production"
     is_valid_otp = False
-    if input_otp == "123456":
+    if is_dev_mode and input_otp == "123456":
         is_valid_otp = True
     elif stored and stored["expires_at"] > now and stored["otp"] == input_otp:
         is_valid_otp = True

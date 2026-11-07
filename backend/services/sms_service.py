@@ -71,18 +71,52 @@ class ProductionSMSProvider(BaseSMSProvider):
                 "is_development": False
             }
 
-        # Real SMS Gateway dispatch logic (e.g., Fast2SMS / Twilio / MSG91)
-        # In production, this transmits HTTP request to telecom carrier
-        logger.info(f"[PROD_OTP] Real SMS dispatched to {phone[-4:]} via carrier gateway.")
-        return {
-            "success": True,
-            "mode": "production",
-            "provider": "carrier_sms",
-            "phone": phone,
-            "otp_code": None,  # STRICT: Hidden in production
-            "message": f"6-अंकों का ओटीपी आपके मोबाइल {phone} पर SMS द्वारा भेजा गया है।",
-            "is_development": False
-        }
+        # Real SMS Gateway dispatch logic (Fast2SMS / Telecom Gateway)
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    "https://www.fast2sms.com/dev/bulkV2",
+                    headers={"authorization": self.api_key},
+                    data={
+                        "variables_values": otp_code,
+                        "route": "otp",
+                        "numbers": phone,
+                    }
+                )
+                if resp.status_code == 200 and resp.json().get("return"):
+                    logger.info(f"[PROD_OTP] Real SMS dispatched to {phone[-4:]} via carrier gateway.")
+                    return {
+                        "success": True,
+                        "mode": "production",
+                        "provider": "fast2sms",
+                        "phone": phone,
+                        "otp_code": None,  # STRICT: Hidden in production
+                        "message": f"6-अंकों का ओटीपी आपके मोबाइल {phone} पर SMS द्वारा भेजा गया है।",
+                        "is_development": False
+                    }
+                else:
+                    logger.warning("[PROD_OTP] Carrier SMS dispatch response: %s", resp.text)
+                    return {
+                        "success": False,
+                        "mode": "production",
+                        "provider": "carrier_sms",
+                        "phone": phone,
+                        "otp_code": None,
+                        "error": "SMS gateway transmission failed. Please verify API key and credit balance.",
+                        "is_development": False
+                    }
+        except Exception as e:
+            logger.error("[PROD_OTP] SMS dispatch exception: %s", e)
+            return {
+                "success": False,
+                "mode": "production",
+                "provider": "carrier_sms",
+                "phone": phone,
+                "otp_code": None,
+                "error": f"Failed to dispatch SMS: {str(e)}",
+                "is_development": False
+            }
 
 
 def get_sms_provider() -> BaseSMSProvider:

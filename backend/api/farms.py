@@ -17,7 +17,10 @@ from db.models import Farm, User, UserRole, PolicyStatus, SoilReport, SoilReport
 from api.auth import get_current_user, get_optional_current_user, get_admin_user, _ok, _error
 import base64
 import io
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 logger = logging.getLogger(__name__)
 
@@ -495,14 +498,15 @@ async def farm_crop_health(
         # 2. Generate a valid, non-corrupt thumbnail data URI (using PIL or full bytes)
         data_uri = ""
         try:
-            pil_img = Image.open(io.BytesIO(image_bytes))
-            if pil_img.mode in ("RGBA", "P"):
-                pil_img = pil_img.convert("RGB")
-            pil_img.thumbnail((480, 480))
-            thumb_buf = io.BytesIO()
-            pil_img.save(thumb_buf, format="JPEG", quality=75)
-            thumb_b64 = base64.b64encode(thumb_buf.getvalue()).decode("utf-8")
-            data_uri = f"data:image/jpeg;base64,{thumb_b64}"
+            if Image is not None:
+                pil_img = Image.open(io.BytesIO(image_bytes))
+                if pil_img.mode in ("RGBA", "P"):
+                    pil_img = pil_img.convert("RGB")
+                pil_img.thumbnail((480, 480))
+                thumb_buf = io.BytesIO()
+                pil_img.save(thumb_buf, format="JPEG", quality=75)
+                thumb_b64 = base64.b64encode(thumb_buf.getvalue()).decode("utf-8")
+                data_uri = f"data:image/jpeg;base64,{thumb_b64}"
         except Exception:
             if len(image_bytes) <= 500000:
                 ct = image.content_type or "image/jpeg"
@@ -596,6 +600,13 @@ async def farm_yield_predict(
         ndmi = 0.44 if crop_clean not in ("unsown", "fallow", "none", "") else -0.15
         ndwi = -0.12 if crop_clean not in ("unsown", "fallow", "none", "") else -0.38
 
+        sowing_date_str = None
+        if farm.sowing_date:
+            try:
+                sowing_date_str = farm.sowing_date.date().isoformat() if hasattr(farm.sowing_date, "date") else str(farm.sowing_date).split("T")[0]
+            except Exception:
+                sowing_date_str = None
+
         result = await ai.get_yield_prediction(
             crop=crop_to_predict, area_ha=area_ha,
             weather={"rainfall": 80, "temp_mean": 27, "humidity": 65},
@@ -604,6 +615,7 @@ async def farm_yield_predict(
             boundary_coordinates=boundary_coords,
             centroid_lat=centroid_lat,
             centroid_lon=centroid_lon,
+            sowing_date=sowing_date_str,
         )
         
         # Calculate total farm yield
