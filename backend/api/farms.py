@@ -6,6 +6,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 from geoalchemy2.elements import WKTElement
 from geoalchemy2.shape import to_shape
 
@@ -627,6 +628,45 @@ async def farm_yield_predict(
         if is_unsown:
             result["suggested_crop"] = crop_to_predict
 
+        # Persist or update the latest yield prediction assessment for this farm
+        try:
+            stmt = select(AIAssessment).where(
+                AIAssessment.farm_id == farm.id,
+                AIAssessment.type == AssessmentType.YIELD_PREDICTION
+            ).order_by(AIAssessment.created_at.desc())
+            res = await db.execute(stmt)
+            assessment = res.scalars().first()
+            if not assessment:
+                assessment = AIAssessment(
+                    farm_id=farm.id,
+                    type=AssessmentType.YIELD_PREDICTION,
+                )
+                db.add(assessment)
+            
+            assessment.model_version = str(result.get("model_version", "yield-v1"))
+            assessment.confidence = float(result.get("confidence", 0.85))
+            assessment.low_confidence = bool(result.get("low_confidence", False))
+            assessment.payload = {
+                "farm_id": str(farm.id),
+                "farm_name": farm.name,
+                "user_id": str(current_user.id) if current_user else None,
+                "crop": crop_to_predict,
+                "area_ha": area_ha,
+                "yield_value": yield_val,
+                "unit": result.get("unit", "kg/ha"),
+                "total_yield_kg": result["total_yield_kg"],
+                "total_yield_quintals": result["total_yield_quintals"],
+                "sowing_date": sowing_date_str,
+                "is_fallback": bool(result.get("is_fallback", False)),
+                "ai_engine": result.get("ai_engine", "live_tunnel" if not result.get("is_fallback") else "offline_fallback"),
+                "is_unsown": is_unsown
+            }
+            flag_modified(assessment, "payload")
+            await db.commit()
+            result["assessment_id"] = str(assessment.id)
+        except Exception as save_err:
+            logger.warning("Failed to persist yield prediction assessment: %s", save_err)
+
         return _ok(result)
     except Exception as e:
         return _error("AI_UNAVAILABLE", str(e), 500)
@@ -674,6 +714,43 @@ async def farm_risk_score(
             centroid_lat=centroid_lat,
             centroid_lon=centroid_lon,
         )
+
+        # Persist or update the latest risk score assessment for this farm
+        try:
+            stmt = select(AIAssessment).where(
+                AIAssessment.farm_id == farm.id,
+                AIAssessment.type == AssessmentType.RISK_SCORE
+            ).order_by(AIAssessment.created_at.desc())
+            res = await db.execute(stmt)
+            assessment = res.scalars().first()
+            if not assessment:
+                assessment = AIAssessment(
+                    farm_id=farm.id,
+                    type=AssessmentType.RISK_SCORE,
+                )
+                db.add(assessment)
+
+            assessment.model_version = str(result.get("model_version", "risk-v1"))
+            assessment.confidence = float(result.get("confidence", 0.88))
+            assessment.low_confidence = bool(result.get("low_confidence", False))
+            assessment.payload = {
+                "farm_id": str(farm.id),
+                "farm_name": farm.name,
+                "user_id": str(current_user.id) if current_user else None,
+                "crop": crop,
+                "area_ha": area_ha,
+                "risk_score": float(result.get("risk_score", 0.35)),
+                "risk_band": result.get("risk_band", "medium"),
+                "factors": result.get("factors", []),
+                "is_fallback": bool(result.get("is_fallback", False)),
+                "ai_engine": result.get("ai_engine", "live_tunnel" if not result.get("is_fallback") else "offline_fallback"),
+            }
+            flag_modified(assessment, "payload")
+            await db.commit()
+            result["assessment_id"] = str(assessment.id)
+        except Exception as save_err:
+            logger.warning("Failed to persist risk score assessment: %s", save_err)
+
         return _ok(result)
     except Exception as e:
         return _error("AI_UNAVAILABLE", str(e), 500)
@@ -733,11 +810,27 @@ async def farm_soil_analyze(
         ai = get_ai_client()
         result = await ai.get_soil_ocr(file_bytes, file.filename or "soil_report")
 
+        # 1. Permanently store original soil card document/image in FileRecord
+        file_id = None
+        try:
+            file_rec = FileRecord(
+                data=file_bytes,
+                mime_type=file.content_type or "application/octet-stream"
+            )
+            db.add(file_rec)
+            await db.flush()
+            file_id = str(file_rec.id)
+            result["file_id"] = file_id
+        except Exception as file_err:
+            logger.warning("Failed to store soil document file record: %s", file_err)
+
+        is_fb = bool(result.get("is_fallback", False))
+        report_id = None
         if farm:
             try:
                 report = SoilReport(
                     farm_id=farm.id,
-                    source=SoilReportSource.OCR,
+                    source=SoilReportSource.FALLBACK if is_fb else SoilReportSource.OCR,
                     n=float(result.get("N", 45.0)),
                     p=float(result.get("P", 22.0)),
                     k=float(result.get("K", 180.0)),
@@ -748,9 +841,41 @@ async def farm_soil_analyze(
                 db.add(report)
                 await db.commit()
                 await db.refresh(report)
-                logger.info("Saved SoilReport %s for farm %s", report.id, farm.id)
+                report_id = str(report.id)
+                result["report_id"] = report_id
+                logger.info("Saved SoilReport %s for farm %s (fallback=%s)", report.id, farm.id, is_fb)
             except Exception as e:
                 logger.error("Failed to save SoilReport to DB: %s", e)
+
+        # 2. Persist an AIAssessment linking the soil scan so the Auto-Reconciler can re-run EasyOCR
+        try:
+            assessment = AIAssessment(
+                farm_id=farm.id if farm else None,
+                type=AssessmentType.ADVISORY,
+                model_version=str(result.get("model_version", "mock-v1" if is_fb else "easyocr-v1")),
+                confidence=float(result.get("confidence", 0.85)),
+                low_confidence=bool(result.get("low_confidence", False)),
+                payload={
+                    "service": "soil_ocr",
+                    "file_id": file_id,
+                    "filename": file.filename or "soil_report",
+                    "farm_id": str(farm.id) if farm else None,
+                    "user_id": str(current_user.id) if current_user else None,
+                    "report_id": report_id,
+                    "N": float(result.get("N", 45.0)),
+                    "P": float(result.get("P", 22.0)),
+                    "K": float(result.get("K", 180.0)),
+                    "pH": float(result.get("pH", 6.8)),
+                    "is_fallback": is_fb,
+                    "ai_engine": result.get("ai_engine", "offline_fallback" if is_fb else "live_tunnel"),
+                    "extracted_text": result.get("extracted_text", "")
+                }
+            )
+            db.add(assessment)
+            await db.commit()
+            result["assessment_id"] = str(assessment.id)
+        except Exception as save_err:
+            logger.warning("Failed to persist soil AIAssessment: %s", save_err)
 
         return _ok(result)
     except Exception as e:

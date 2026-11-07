@@ -251,25 +251,40 @@ class HttpAIClient(AIClient):
                     files={"file": (filename, file_bytes, "application/octet-stream")},
                 )
                 r.raise_for_status()
-                return r.json()
+                res = r.json()
+                res["is_fallback"] = False
+                res["ai_engine"] = "live_tunnel"
+                return res
         except Exception as e:
             logger.warning("AI microservice get_soil_ocr unavailable (%s), using local extraction engine", e)
             try:
                 from services.soil_ocr_service import extract_soil_data_from_bytes
-                return extract_soil_data_from_bytes(file_bytes, filename)
+                res = extract_soil_data_from_bytes(file_bytes, filename)
+                res["is_fallback"] = True
+                res["ai_engine"] = "local_backend_ocr"
+                return res
             except Exception as e2:
                 logger.warning("Local soil OCR extraction fallback failed: %s", e2)
-                return await self._fallback.get_soil_ocr(file_bytes, filename)
+                fallback_res = await self._fallback.get_soil_ocr(file_bytes, filename)
+                fallback_res["is_fallback"] = True
+                fallback_res["ai_engine"] = "offline_fallback"
+                return fallback_res
 
     async def get_advisory(self, farm_context: dict):
         try:
             async with httpx.AsyncClient(timeout=AI_HTTP_TIMEOUT, follow_redirects=True, headers=self._headers) as client:
                 r = await client.post(f"{self.base_url}/v1/advisory/", json=farm_context)
                 r.raise_for_status()
-                return r.json()
+                res = r.json()
+                res["is_fallback"] = False
+                res["ai_engine"] = "live_tunnel"
+                return res
         except Exception as e:
             logger.warning("AI get_advisory failed: %s, using fallback", e)
-            return await self._fallback.get_advisory(farm_context)
+            fallback_res = await self._fallback.get_advisory(farm_context)
+            fallback_res["is_fallback"] = True
+            fallback_res["ai_engine"] = "offline_fallback"
+            return fallback_res
 
 
 def get_ai_client() -> AIClient:

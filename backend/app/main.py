@@ -129,16 +129,20 @@ async def start_periodic_farm_monitor():
 
     async def periodic_ai_reconciler():
         # Stagger startup by 30 seconds, then check every 90 seconds
-        # When AI tunnel is turned on, automatically re-analyzes scans taken during offline mode
+        # When AI tunnel is turned on, automatically reconciles all models (Crop Health, Yield, Risk, Soil OCR)
         await asyncio.sleep(30)
         while True:
             try:
                 from db.session import AsyncSessionLocal
-                from services.ai_reconciliation_service import reconcile_pending_crop_scans
+                from services.ai_reconciliation_service import reconcile_all_pending_ai_assessments
                 async with AsyncSessionLocal() as session:
-                    reconciled = await reconcile_pending_crop_scans(session)
-                    if reconciled > 0:
-                        app_logger.info(f"AI Auto-Reconciler re-analyzed and updated {reconciled} scan(s) using live PyTorch model.")
+                    summary = await reconcile_all_pending_ai_assessments(session)
+                    if summary.get("total_reconciled", 0) > 0:
+                        app_logger.info(
+                            f"AI Auto-Reconciler synchronized {summary['total_reconciled']} record(s): "
+                            f"scans={summary['crop_scans']}, yield={summary['yield_predictions']}, "
+                            f"risk={summary['risk_scores']}, soil={summary['soil_reports']}"
+                        )
             except asyncio.CancelledError:
                 break
             except Exception as e:

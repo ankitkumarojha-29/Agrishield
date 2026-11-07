@@ -591,7 +591,18 @@ export const api = {
     }
   },
 
-  triggerReconcileScans: async (): Promise<Envelope<{ success: boolean; reconciled_count: number; message: string }>> => {
+  triggerReconcileScans: async (): Promise<Envelope<{
+    success: boolean;
+    online?: boolean;
+    reconciled_count: number;
+    details?: {
+      crop_scans?: number;
+      yield_predictions?: number;
+      risk_scores?: number;
+      soil_reports?: number;
+    };
+    message: string;
+  }>> => {
     try {
       const res = await apiClient.post('/admin/reconcile-scans');
       return res.data;

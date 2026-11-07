@@ -407,11 +407,18 @@ async def trigger_reconcile_scans(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user)
 ):
-    """Manually triggers retrospective inference on any scans that were submitted while tunnel was offline."""
-    from services.ai_reconciliation_service import reconcile_pending_crop_scans
-    reconciled_count = await reconcile_pending_crop_scans(db, batch_limit=50)
+    """Manually triggers retrospective AI inference across all models (Crop Health, Yield, Risk, Soil OCR)."""
+    from services.ai_reconciliation_service import reconcile_all_pending_ai_assessments
+    summary = await reconcile_all_pending_ai_assessments(db)
     return _ok({
         "success": True,
-        "reconciled_count": reconciled_count,
-        "message": f"Successfully re-analyzed {reconciled_count} scan(s) using live PyTorch model." if reconciled_count > 0 else "No pending fallback scans require re-analysis (or AI tunnel is currently offline)."
+        "online": summary.get("online", False),
+        "reconciled_count": summary.get("total_reconciled", 0),
+        "details": {
+            "crop_scans": summary.get("crop_scans", 0),
+            "yield_predictions": summary.get("yield_predictions", 0),
+            "risk_scores": summary.get("risk_scores", 0),
+            "soil_reports": summary.get("soil_reports", 0),
+        },
+        "message": summary.get("message", "Reconciliation completed.")
     })

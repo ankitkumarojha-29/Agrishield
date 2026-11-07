@@ -69,12 +69,17 @@ export default function Farmers() {
     try {
       const res = await api.triggerReconcileScans();
       if (res.success && res.data) {
-        setReconcileMessage(res.data.message);
+        const d = res.data.details;
+        let msg = res.data.message;
+        if (d && (d.crop_scans || d.yield_predictions || d.risk_scores || d.soil_reports)) {
+          msg = `✨ AI Sync Complete: ${d.crop_scans || 0} leaf scans, ${d.yield_predictions || 0} yield forecasts, ${d.risk_scores || 0} risk scores, ${d.soil_reports || 0} soil reports re-computed with live models.`;
+        }
+        setReconcileMessage(msg);
         if (selectedFarmer) {
           handleInspectFarmer(selectedFarmer);
         }
       } else {
-        setReconcileMessage('AI tunnel offline or no pending scans to reconcile.');
+        setReconcileMessage('AI tunnel offline or all models already synchronized.');
       }
     } catch {
       setReconcileMessage('AI service is currently offline. Will auto-sync when tunnel connects.');
@@ -235,10 +240,10 @@ export default function Farmers() {
             onClick={handleReconcileScans}
             disabled={reconciling}
             className="inline-flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs md:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
-            title="Auto-reanalyzes scans that were processed while AI tunnel was offline"
+            title="Auto-reconciles all leaf scans, yield predictions, risk scores, and soil OCR data collected while offline"
           >
             <RefreshCw size={15} className={reconciling ? "animate-spin text-emerald-700" : "text-emerald-700"} />
-            <span>{reconciling ? "Re-analyzing Scans..." : "Sync Offline AI Scans"}</span>
+            <span>{reconciling ? "Syncing All AI Models..." : "Sync Offline AI Models"}</span>
           </button>
 
           <button
