@@ -151,6 +151,8 @@ export type CropHealthResult = {
   growth_stage?: string;
   treatment?: string;
   prevention?: string;
+  is_fallback?: boolean;
+  ai_engine?: string;
 };
 
 export type SoilAnalysisResult = {
@@ -354,6 +356,8 @@ export type FarmerOverview = {
     image_data_uri: string;
     image_url?: string;
     farm_name: string;
+    model_version?: string;
+    is_fallback?: boolean;
   }[];
   soil_reports: {
     id: string;

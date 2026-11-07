@@ -805,9 +805,19 @@ export default function Farmers() {
                           </div>
                           <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                             <span className="text-[10px] uppercase font-bold text-slate-400 block">Model Engine</span>
-                            <span className="text-xs font-bold text-slate-800 mt-1 block font-mono">
-                              EfficientNet-B0
-                            </span>
+                            <div className="mt-1 flex items-center gap-1">
+                              {scan.model_version && !scan.model_version.includes('mock') ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  Live AI ({scan.model_version})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                  Fallback ({scan.model_version || 'mock-v1'})
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
 

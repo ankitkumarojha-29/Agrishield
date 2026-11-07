@@ -231,7 +231,9 @@ async def get_farmer_overview(
                 "recommendations": p.get("recommendations") or [],
                 "image_data_uri": img_uri,
                 "image_url": img_url,
-                "farm_name": p.get("farm_name") or (farm_name_map.get(str(scan.farm_id)) if scan.farm_id else "Field Scan")
+                "farm_name": p.get("farm_name") or (farm_name_map.get(str(scan.farm_id)) if scan.farm_id else "Field Scan"),
+                "model_version": scan.model_version or p.get("model_version") or "effnet-crop-v1",
+                "is_fallback": "mock" in (scan.model_version or "").lower()
             })
 
     # 5. Claims submitted by this farmer
@@ -347,6 +349,8 @@ async def get_all_scans(
             "recommendations": p.get("recommendations") or [],
             "treatment": p.get("treatment") or (p.get("recommendations", [""])[0] if p.get("recommendations") else ""),
             "prevention": p.get("prevention") or (p.get("recommendations", ["", ""])[1] if len(p.get("recommendations", [])) > 1 else ""),
+            "model_version": s.model_version or p.get("model_version") or "effnet-crop-v1",
+            "is_fallback": "mock" in (s.model_version or "").lower(),
         })
     return _ok(items)
 

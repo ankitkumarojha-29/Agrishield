@@ -395,7 +395,19 @@ export default function CropScan() {
 
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Model Engine</span>
-                  <p className="text-xs font-semibold text-slate-800 mt-1 font-mono">{result.model_version || 'EfficientNet-B0'}</p>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    {result.model_version && !result.model_version.toLowerCase().includes('mock') ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Live AI ({result.model_version})
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        Fallback ({result.model_version || 'mock-v1'})
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -516,8 +528,13 @@ export default function CropScan() {
                   </div>
 
                   <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-500">
-                      विश्वास: <strong className="text-slate-800">{Math.round((scan.confidence || 0.9) * 100)}%</strong>
+                    <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                      <span>विश्वास: <strong className="text-slate-800">{Math.round((scan.confidence || 0.9) * 100)}%</strong></span>
+                      {scan.model_version && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${scan.model_version.includes('mock') ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                          {scan.model_version.includes('mock') ? 'Fallback' : 'Live AI'}
+                        </span>
+                      )}
                     </span>
                     <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                       देखें <ChevronRight size={13} />

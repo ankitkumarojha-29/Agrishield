@@ -30,6 +30,7 @@ class MockAIClient(AIClient):
             "label": "Healthy", "severity": "none", "boxes": [],
             "model_version": "mock-v1", "confidence": 0.92,
             "low_confidence": False, "inference_ms": 10,
+            "is_fallback": True, "ai_engine": "offline_fallback",
         }
 
     async def get_damage_assessment(self, image_bytes, crop, event_type):
@@ -38,6 +39,7 @@ class MockAIClient(AIClient):
             "detections": [{"label": event_type, "area_pct": 0.28, "confidence": 0.87}],
             "model_version": "mock-v1", "confidence": 0.87,
             "low_confidence": False, "inference_ms": 12,
+            "is_fallback": True, "ai_engine": "offline_fallback",
         }
 
     async def get_yield_prediction(self, crop, area_ha, weather, soil, satellite, boundary_coordinates=None, centroid_lat=None, centroid_lon=None, sowing_date=None):
@@ -45,6 +47,7 @@ class MockAIClient(AIClient):
             "yield_value": 3200.0, "unit": "kg/ha",
             "model_version": "mock-v1", "confidence": 0.82,
             "low_confidence": False, "inference_ms": 5,
+            "is_fallback": True, "ai_engine": "offline_fallback",
         }
 
     async def get_risk_score(self, crop, area_ha, weather, soil, satellite, history, boundary_coordinates=None, centroid_lat=None, centroid_lon=None):
@@ -52,18 +55,23 @@ class MockAIClient(AIClient):
             "risk_score": 0.35, "risk_band": "medium", "factors": [],
             "model_version": "mock-v1", "confidence": 0.88,
             "low_confidence": False, "inference_ms": 3,
+            "is_fallback": True, "ai_engine": "offline_fallback",
         }
 
     async def get_soil_ocr(self, file_bytes, filename):
         try:
             from services.soil_ocr_service import extract_soil_data_from_bytes
-            return extract_soil_data_from_bytes(file_bytes, filename)
+            res = extract_soil_data_from_bytes(file_bytes, filename)
+            res["is_fallback"] = True
+            res["ai_engine"] = "local_backend_ocr"
+            return res
         except Exception as e:
             logger.warning("MockAIClient local soil OCR failed: %s", e)
             return {
                 "N": 45.0, "P": 22.0, "K": 180.0, "pH": 6.8,
                 "confidence": 0.80, "extracted_text": "Soil Health Card processed",
                 "model_version": "mock-v1", "low_confidence": False, "inference_ms": 5,
+                "is_fallback": True, "ai_engine": "offline_fallback",
             }
 
     async def get_advisory(self, farm_context):
@@ -72,6 +80,7 @@ class MockAIClient(AIClient):
             "warnings": [],
             "model_version": "mock-v1", "confidence": 0.85,
             "low_confidence": False, "inference_ms": 2,
+            "is_fallback": True, "ai_engine": "offline_fallback",
         }
 
 
@@ -102,10 +111,16 @@ class HttpAIClient(AIClient):
                     data={"crop": crop, "growth_stage": growth_stage},
                 )
                 r.raise_for_status()
-                return r.json()
+                res = r.json()
+                res["is_fallback"] = False
+                res["ai_engine"] = "live_tunnel"
+                return res
         except Exception as e:
             logger.warning("AI get_crop_health failed: %s, using fallback", e)
-            return await self._fallback.get_crop_health(image_bytes, crop, growth_stage)
+            fallback_res = await self._fallback.get_crop_health(image_bytes, crop, growth_stage)
+            fallback_res["is_fallback"] = True
+            fallback_res["ai_engine"] = "offline_fallback"
+            return fallback_res
 
     async def get_damage_assessment(self, image_bytes: bytes, crop: str, event_type: str):
         try:
@@ -116,10 +131,16 @@ class HttpAIClient(AIClient):
                     data={"crop": crop, "event_type": event_type},
                 )
                 r.raise_for_status()
-                return r.json()
+                res = r.json()
+                res["is_fallback"] = False
+                res["ai_engine"] = "live_tunnel"
+                return res
         except Exception as e:
             logger.warning("AI get_damage_assessment failed: %s, using fallback", e)
-            return await self._fallback.get_damage_assessment(image_bytes, crop, event_type)
+            fallback_res = await self._fallback.get_damage_assessment(image_bytes, crop, event_type)
+            fallback_res["is_fallback"] = True
+            fallback_res["ai_engine"] = "offline_fallback"
+            return fallback_res
 
     async def get_yield_prediction(self, crop: str, area_ha: float, weather: dict, soil: dict, satellite: dict, boundary_coordinates: list = None, centroid_lat: float = None, centroid_lon: float = None, sowing_date: str = None):
         try:
@@ -171,10 +192,16 @@ class HttpAIClient(AIClient):
             async with httpx.AsyncClient(timeout=AI_HTTP_TIMEOUT, follow_redirects=True, headers=self._headers) as client:
                 r = await client.post(f"{self.base_url}/v1/yield-prediction/", json=payload)
                 r.raise_for_status()
-                return r.json()
+                res = r.json()
+                res["is_fallback"] = False
+                res["ai_engine"] = "live_tunnel"
+                return res
         except Exception as e:
             logger.warning("AI get_yield_prediction failed: %s, using fallback", e)
-            return await self._fallback.get_yield_prediction(crop, area_ha, weather, soil, satellite, boundary_coordinates, centroid_lat, centroid_lon, sowing_date=sowing_date)
+            fallback_res = await self._fallback.get_yield_prediction(crop, area_ha, weather, soil, satellite, boundary_coordinates, centroid_lat, centroid_lon, sowing_date=sowing_date)
+            fallback_res["is_fallback"] = True
+            fallback_res["ai_engine"] = "offline_fallback"
+            return fallback_res
 
     async def get_risk_score(self, crop: str, area_ha: float, weather: dict, soil: dict, satellite: dict, history: dict, boundary_coordinates: list = None, centroid_lat: float = None, centroid_lon: float = None):
         try:
@@ -205,10 +232,16 @@ class HttpAIClient(AIClient):
                     },
                 )
                 r.raise_for_status()
-                return r.json()
+                res = r.json()
+                res["is_fallback"] = False
+                res["ai_engine"] = "live_tunnel"
+                return res
         except Exception as e:
             logger.warning("AI get_risk_score failed: %s, using fallback", e)
-            return await self._fallback.get_risk_score(crop, area_ha, weather, soil, satellite, history, boundary_coordinates, centroid_lat, centroid_lon)
+            fallback_res = await self._fallback.get_risk_score(crop, area_ha, weather, soil, satellite, history, boundary_coordinates, centroid_lat, centroid_lon)
+            fallback_res["is_fallback"] = True
+            fallback_res["ai_engine"] = "offline_fallback"
+            return fallback_res
 
     async def get_soil_ocr(self, file_bytes: bytes, filename: str):
         try:
