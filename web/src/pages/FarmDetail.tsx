@@ -389,7 +389,7 @@ export default function FarmDetail() {
                 </span>
               </div>
               <div className="h-[360px] w-full">
-                <MapContainer center={centerPosition} zoom={15} className="h-full w-full">
+                <MapContainer preferCanvas={true} center={centerPosition} zoom={15} className="h-full w-full">
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

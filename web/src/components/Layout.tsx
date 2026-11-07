@@ -20,6 +20,7 @@ import {
 
 import TopHeader from './TopHeader';
 import { useUserRole } from '../context/RoleContext';
+import OfflineBanner from './common/OfflineBanner';
 
 interface NavItem {
   path: string;
@@ -196,6 +197,7 @@ export default function Layout() {
         <div className="flex-1 p-4 md:p-8 max-w-[1440px] w-full mx-auto">
           <Outlet />
         </div>
+        <OfflineBanner />
       </main>
     </div>
   );

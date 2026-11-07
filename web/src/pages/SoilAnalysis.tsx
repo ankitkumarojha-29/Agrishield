@@ -10,13 +10,15 @@ import {
   User,
   ChevronDown,
   ChevronUp,
-  Sliders
+  Sliders,
+  Zap
 } from 'lucide-react';
 import { api } from '../api';
 import type { SoilAnalysisResult, Farm } from '../api';
 import { CROPS_CATALOG, fetchCropsCatalog, getBilingualCropName, type CropInfo } from '../data/agriCatalog';
 import { AIScanLoader } from '../components/common/AIScanLoader';
 import { Skeleton } from '../components/common/Skeleton';
+import { compressImage, formatBytes } from '../utils/imageCompressor';
 
 // Agronomic crop definitions and specific nutrient demands
 interface CropProfile {
@@ -172,6 +174,7 @@ export const getProfileForCrop = (cropKey: string): CropProfile => {
 export default function SoilAnalysis() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewName, setPreviewName] = useState<string | null>(null);
+  const [compressionInfo, setCompressionInfo] = useState<{ original: string; compressed: string; savings: number } | null>(null);
   const [selectedCrop, setSelectedCrop] = useState<string>('wheat');
   const [farmAcresInput, setFarmAcresInput] = useState<string>('2.5');
   const [loading, setLoading] = useState(false);
@@ -246,15 +249,20 @@ export default function SoilAnalysis() {
   const activeK = customK !== null ? customK : (result?.K ?? 180);
   const activePH = customPH !== null ? customPH : (result?.pH ?? 6.8);
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 15 * 1024 * 1024) {
-        setError('मृदा कार्ड दस्तावेज़ 15 MB से कम होना चाहिए (File size must not exceed 15 MB).');
+      const rawFile = e.target.files[0];
+      if (rawFile.size > 20 * 1024 * 1024) {
+        setError('मृदा कार्ड दस्तावेज़ 20 MB से कम होना चाहिए (File size must not exceed 20 MB).');
         return;
       }
-      setSelectedFile(file);
-      setPreviewName(file.name);
+
+      // Automatically compress if it's an image (leaves PDF intact)
+      const comp = await compressImage(rawFile, { maxDimension: 1800, quality: 0.86 });
+      const targetFile = comp.file;
+
+      setSelectedFile(targetFile);
+      setPreviewName(targetFile.name);
       setResult(null);
       setError(null);
       setCustomN(null);
@@ -262,6 +270,16 @@ export default function SoilAnalysis() {
       setCustomK(null);
       setCustomPH(null);
       setIsEditingValues(false);
+
+      if (comp.wasCompressed) {
+        setCompressionInfo({
+          original: formatBytes(comp.originalSize),
+          compressed: formatBytes(comp.compressedSize),
+          savings: comp.savingsPercent,
+        });
+      } else {
+        setCompressionInfo(null);
+      }
     }
   };
 
@@ -690,9 +708,17 @@ export default function SoilAnalysis() {
                   सरकारी कार्ड, KVK रिपोर्ट, या मोबाइल से खींची गई फोटो
                 </p>
                 {previewName && (
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full mt-2">
-                    तैयार (Ready to Extract)
-                  </span>
+                  <div className="flex flex-col items-center gap-1.5 mt-2">
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                      तैयार (Ready to Extract)
+                    </span>
+                    {compressionInfo && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        <Zap size={11} className="text-emerald-600 fill-emerald-500" />
+                        कंप्रेशन: {compressionInfo.original} → {compressionInfo.compressed} ({compressionInfo.savings}% बचत)
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

@@ -6,17 +6,20 @@ import {
   AlertTriangle, 
   Sparkles, 
   RefreshCw, 
-  Camera
+  Camera,
+  Zap
 } from 'lucide-react';
 import { api } from '../api';
 import type { CropHealthResult } from '../api';
 import { CropSearchSelect } from '../components/CropSearchSelect';
 import { AIScanLoader, LaserScanOverlay } from '../components/common/AIScanLoader';
 import { LiveCameraModal } from '../components/common/LiveCameraModal';
+import { compressImage, formatBytes } from '../utils/imageCompressor';
 
 export default function CropScan() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [compressionInfo, setCompressionInfo] = useState<{ original: string; compressed: string; savings: number } | null>(null);
   const [crop, setCrop] = useState('Wheat');
   const [growthStage, setGrowthStage] = useState('vegetative');
   const [loading, setLoading] = useState(false);
@@ -26,14 +29,24 @@ export default function CropScan() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLiveCapture = (file: File, url: string) => {
+  const handleLiveCapture = async (file: File, url: string) => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
-    setSelectedFile(file);
+    const comp = await compressImage(file, { maxDimension: 1600, quality: 0.84 });
+    setSelectedFile(comp.file);
     setPreviewUrl(url);
     setResult(null);
     setError(null);
+    if (comp.wasCompressed) {
+      setCompressionInfo({
+        original: formatBytes(comp.originalSize),
+        compressed: formatBytes(comp.compressedSize),
+        savings: comp.savingsPercent,
+      });
+    } else {
+      setCompressionInfo(null);
+    }
   };
 
   useEffect(() => {
@@ -44,20 +57,35 @@ export default function CropScan() {
     };
   }, [previewUrl]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 15 * 1024 * 1024) {
-        setError('फोटो का आकार 15 MB से कम होना चाहिए (Photo size must not exceed 15 MB).');
+      const rawFile = e.target.files[0];
+      if (rawFile.size > 20 * 1024 * 1024) {
+        setError('फोटो का आकार 20 MB से कम होना चाहिए (Photo size must not exceed 20 MB).');
         return;
       }
+
+      // Auto-compress high-res gallery / camera photos
+      const comp = await compressImage(rawFile, { maxDimension: 1600, quality: 0.84 });
+      const targetFile = comp.file;
+
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      setSelectedFile(targetFile);
+      setPreviewUrl(URL.createObjectURL(targetFile));
       setResult(null);
       setError(null);
+
+      if (comp.wasCompressed) {
+        setCompressionInfo({
+          original: formatBytes(comp.originalSize),
+          compressed: formatBytes(comp.compressedSize),
+          savings: comp.savingsPercent,
+        });
+      } else {
+        setCompressionInfo(null);
+      }
     }
   };
 
@@ -179,6 +207,14 @@ export default function CropScan() {
                     />
                     {loading && <LaserScanOverlay />}
                   </div>
+
+                  {compressionInfo && (
+                    <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-semibold border border-emerald-200 shadow-xs animate-in fade-in">
+                      <Zap size={12} className="text-emerald-600 fill-emerald-500" />
+                      <span>स्मार्ट कंप्रेस: {compressionInfo.original} → {compressionInfo.compressed} ({compressionInfo.savings}% बचत, अल्ट्रा-फास्ट AI अपलोड)</span>
+                    </div>
+                  )}
+
                   <div className="mt-3 flex items-center gap-2">
                     <button
                       type="button"

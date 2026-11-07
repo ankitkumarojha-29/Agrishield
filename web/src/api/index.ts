@@ -23,17 +23,36 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// In-Flight Request Deduplicator & Lightweight SWR Cache
+// In-Flight Request Deduplicator & Resilient SWR Cache with Session Persistence
 const inFlightRequests = new Map<string, Promise<any>>();
 const swrCache = new Map<string, { data: any; expiry: number }>();
 
 async function dedupeGet<T>(url: string, ttlMs: number = 3000): Promise<T> {
   const now = Date.now();
+
+  // 1. Check in-memory SWR cache
   const cached = swrCache.get(url);
   if (cached && cached.expiry > now) {
     return cached.data;
   }
 
+  // 2. Check persistent sessionStorage if available
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const stored = sessionStorage.getItem(`agy_swr_${url}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.expiry > now) {
+          swrCache.set(url, parsed);
+          return parsed.data;
+        }
+      }
+    } catch {
+      // Ignore quota/parse errors
+    }
+  }
+
+  // 3. Deduplicate multiple identical requests in-flight simultaneously
   if (inFlightRequests.has(url)) {
     return inFlightRequests.get(url)!;
   }
@@ -42,9 +61,31 @@ async function dedupeGet<T>(url: string, ttlMs: number = 3000): Promise<T> {
     try {
       const res = await apiClient.get<T>(url);
       if (ttlMs > 0 && res.data && (res.data as any).success) {
-        swrCache.set(url, { data: res.data, expiry: Date.now() + ttlMs });
+        const item = { data: res.data, expiry: Date.now() + ttlMs };
+        swrCache.set(url, item);
+        try {
+          sessionStorage.setItem(`agy_swr_${url}`, JSON.stringify(item));
+        } catch {
+          // Ignore quota errors
+        }
       }
       return res.data;
+    } catch (err) {
+      // 4. Offline resilience: return last cached copy if offline or network error
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        try {
+          const fallback = sessionStorage.getItem(`agy_swr_${url}`);
+          if (fallback) {
+            const parsed = JSON.parse(fallback);
+            if (parsed?.data) {
+              return parsed.data;
+            }
+          }
+        } catch {
+          // Fall through
+        }
+      }
+      throw err;
     } finally {
       inFlightRequests.delete(url);
     }
@@ -651,8 +692,8 @@ export const api = {
 
   getFarmWeather: async (farmId: string): Promise<Envelope<any>> => {
     try {
-      const res = await apiClient.get(`/farms/${farmId}/weather/current`);
-      return res.data;
+      const res = await dedupeGet<Envelope<any>>(`/farms/${farmId}/weather/current`, 15000);
+      return res;
     } catch (err) {
       return createMockResponse({
         temperature_celsius: 28, wind_speed_kmh: 12,
@@ -701,8 +742,8 @@ export const api = {
 
   getMspBenchmarks: async (): Promise<Envelope<any[]>> => {
     try {
-      const res = await apiClient.get('/mandi/benchmarks');
-      return res.data;
+      const res = await dedupeGet<Envelope<any[]>>('/mandi/benchmarks', 30000);
+      return res;
     } catch (err) {
       return createMockResponse([]);
     }
@@ -729,8 +770,8 @@ export const api = {
 
   getMandiCrops: async (): Promise<Envelope<any[]>> => {
     try {
-      const res = await apiClient.get('/mandi/crops');
-      return res.data;
+      const res = await dedupeGet<Envelope<any[]>>('/mandi/crops', 60000);
+      return res;
     } catch (err) {
       return createMockResponse([]);
     }
@@ -738,8 +779,8 @@ export const api = {
 
   getSoilTypes: async (): Promise<Envelope<any[]>> => {
     try {
-      const res = await apiClient.get('/mandi/soil-types');
-      return res.data;
+      const res = await dedupeGet<Envelope<any[]>>('/mandi/soil-types', 60000);
+      return res;
     } catch (err) {
       return createMockResponse([]);
     }

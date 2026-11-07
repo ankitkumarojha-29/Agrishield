@@ -355,6 +355,7 @@ export default function AddFarm() {
 
             <div className="h-[340px] sm:h-[420px] lg:h-[480px] w-full z-10 relative">
               <MapContainer 
+                preferCanvas={true}
                 center={points.length > 0 ? points[0] : (mapCenter || [23.2599, 77.4126])} 
                 zoom={17} 
                 className="h-full w-full"

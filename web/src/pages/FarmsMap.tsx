@@ -230,7 +230,7 @@ export default function FarmsMap() {
 
           {/* Map Canvas */}
           <div className="h-[340px] sm:h-[420px] lg:h-[520px] w-full relative z-10">
-            <MapContainer center={mapCenter || defaultCenter} zoom={16} className="w-full h-full">
+            <MapContainer preferCanvas={true} center={mapCenter || defaultCenter} zoom={16} className="w-full h-full">
               <MapRecenter center={mapCenter || userLocation} />
               
               {userLocation && (
