@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Eye
 } from 'lucide-react';
 import { api } from '../api';
 import type { Farmer, Farm, FarmerOverview } from '../api';
@@ -54,6 +55,7 @@ export default function Farmers() {
   const [activeTab, setActiveTab] = useState<'farms' | 'scans' | 'soil'>('farms');
   const [cropsList, setCropsList] = useState<CropInfo[]>(CROPS_CATALOG);
   const [plotSearch, setPlotSearch] = useState('');
+  const [previewModalImage, setPreviewModalImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCropsCatalog().then(data => {
@@ -704,21 +706,29 @@ export default function Farmers() {
                       </div>
 
                       {/* Uploaded Leaf Photo Display */}
-                      {scan.image_data_uri ? (
-                        <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                      {(scan.image_data_uri || scan.image_url) ? (
+                        <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group">
                           <img 
-                            src={scan.image_data_uri} 
+                            src={api.resolveMediaUrl(scan.image_data_uri || scan.image_url)} 
                             alt="Leaf Scan Evidence" 
-                            className="w-full h-40 object-cover hover:scale-105 transition-transform cursor-pointer"
-                            onClick={() => window.open(scan.image_data_uri, '_blank')}
+                            className="w-full h-44 object-cover hover:scale-105 transition-transform cursor-pointer"
+                            onClick={() => setPreviewModalImage(api.resolveMediaUrl(scan.image_data_uri || scan.image_url))}
                           />
-                          <span className="absolute bottom-1 right-2 text-[10px] bg-black/60 text-white px-2 py-0.5 rounded backdrop-blur-xs">
-                            Farmer Uploaded Evidence
+                          <button
+                            type="button"
+                            onClick={() => setPreviewModalImage(api.resolveMediaUrl(scan.image_data_uri || scan.image_url))}
+                            className="absolute bottom-2 right-2 text-[10px] bg-slate-900/85 hover:bg-slate-900 text-white font-bold px-2.5 py-1 rounded-lg backdrop-blur-xs flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <Eye size={12} /> बड़ा फोटो देखें (Inspect Photo)
+                          </button>
+                          <span className="absolute top-2 left-2 text-[10px] bg-emerald-900/80 text-white font-semibold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                            Farmer Evidence
                           </span>
                         </div>
                       ) : (
-                        <div className="p-2 bg-slate-50 rounded text-[11px] text-slate-400 italic">
-                          No photo preview attached
+                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-400 italic flex items-center gap-1.5">
+                          <Camera size={14} className="text-slate-300" />
+                          <span>No leaf photograph uploaded</span>
                         </div>
                       )}
 
@@ -795,6 +805,49 @@ export default function Farmers() {
                 className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors"
               >
                 Close Drawer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* High-Resolution Leaf Photo Lightbox Modal */}
+      {previewModalImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setPreviewModalImage(null)}
+        >
+          <div 
+            className="relative max-w-3xl max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-900/90 border-b border-slate-800">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Camera size={14} className="text-emerald-400" />
+                <span>किसान द्वारा अपलोड की गई पत्ती फोटो (Leaf Inspection)</span>
+              </span>
+              <button 
+                onClick={() => setPreviewModalImage(null)}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-2 sm:p-4 overflow-auto flex items-center justify-center bg-black/40">
+              <img 
+                src={previewModalImage} 
+                alt="Enlarged Leaf Lesion Evidence" 
+                className="max-h-[75vh] w-auto max-w-full rounded-xl object-contain shadow-lg"
+              />
+            </div>
+            <div className="px-4 py-2.5 bg-slate-900/95 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Full resolution photographic evidence submitted for AI diagnostic verification</span>
+              <button
+                type="button"
+                onClick={() => window.open(previewModalImage, '_blank')}
+                className="text-emerald-400 hover:underline flex items-center gap-1 font-semibold"
+              >
+                <ExternalLink size={12} /> मूल फोटो खोलें (Open Full Image)
               </button>
             </div>
           </div>

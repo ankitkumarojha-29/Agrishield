@@ -212,16 +212,24 @@ async def get_farmer_overview(
         matches_user = str(p.get("user_id", "")) == str(farmer_id)
         matches_farm = (scan.farm_id in farm_ids) if (scan.farm_id and farm_ids) else False
         if matches_user or matches_farm:
+            img_uri = p.get("image_data_uri") or ""
+            img_url = p.get("image_url") or ""
+            if not img_uri and img_url:
+                img_uri = img_url
             farmer_scans.append({
                 "id": str(scan.id),
                 "created_at": scan.created_at.isoformat() if scan.created_at else None,
                 "confidence": scan.confidence,
                 "disease": p.get("disease") or p.get("diagnosis") or "Healthy Leaf",
+                "label": p.get("diagnosis") or p.get("disease") or "Healthy Leaf",
                 "severity": p.get("severity") or "LOW",
                 "crop": p.get("crop") or "Crop",
                 "growth_stage": p.get("growth_stage") or "vegetative",
+                "treatment": p.get("treatment") or (p.get("recommendations", [""])[0] if p.get("recommendations") else ""),
+                "prevention": p.get("prevention") or (p.get("recommendations", ["", ""])[1] if len(p.get("recommendations", [])) > 1 else ""),
                 "recommendations": p.get("recommendations") or [],
-                "image_data_uri": p.get("image_data_uri") or "",
+                "image_data_uri": img_uri,
+                "image_url": img_url,
                 "farm_name": p.get("farm_name") or (farm_name_map.get(str(scan.farm_id)) if scan.farm_id else "Field Scan")
             })
 
@@ -292,6 +300,54 @@ async def get_farmer_overview(
             "created_at": pol.created_at.isoformat() if pol.created_at else None
         } for pol in policies]
     })
+
+@router.get("/scans")
+async def get_all_scans(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+    limit: int = Query(50, ge=1, le=200)
+):
+    """Returns recent leaf crop health scans from all farmers across the platform for administrative audit."""
+    f_res = await db.execute(select(Farm))
+    farms = f_res.scalars().all()
+    farm_map = {str(f.id): f.name for f in farms}
+
+    stmt = (
+        select(AIAssessment)
+        .where(AIAssessment.type == AssessmentType.CROP_HEALTH)
+        .order_by(AIAssessment.created_at.desc())
+        .limit(limit)
+    )
+    res = await db.execute(stmt)
+    scans = res.scalars().all()
+
+    items = []
+    for s in scans:
+        p = s.payload or {}
+        img_uri = p.get("image_data_uri") or ""
+        img_url = p.get("image_url") or ""
+        if not img_uri and img_url:
+            img_uri = img_url
+        items.append({
+            "id": str(s.id),
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "confidence": s.confidence,
+            "disease": p.get("disease") or p.get("diagnosis") or "Healthy Leaf",
+            "label": p.get("diagnosis") or p.get("disease") or "Healthy Leaf",
+            "severity": p.get("severity") or "LOW",
+            "crop": p.get("crop") or "Crop",
+            "growth_stage": p.get("growth_stage") or "vegetative",
+            "farmer_name": p.get("farmer_name") or "Farmer",
+            "farmer_phone": p.get("farmer_phone") or "N/A",
+            "user_id": str(p.get("user_id", "")),
+            "farm_name": p.get("farm_name") or (farm_map.get(str(s.farm_id)) if s.farm_id else "Field Scan"),
+            "image_url": img_url,
+            "image_data_uri": img_uri,
+            "recommendations": p.get("recommendations") or [],
+            "treatment": p.get("treatment") or (p.get("recommendations", [""])[0] if p.get("recommendations") else ""),
+            "prevention": p.get("prevention") or (p.get("recommendations", ["", ""])[1] if len(p.get("recommendations", [])) > 1 else ""),
+        })
+    return _ok(items)
 
 @router.post("/alerts/broadcast")
 async def broadcast_alert(

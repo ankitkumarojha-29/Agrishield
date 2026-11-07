@@ -18,7 +18,11 @@ import {
   CheckCircle2,
   ArrowRight,
   UserCheck,
-  RefreshCw
+  RefreshCw,
+  Camera,
+  Eye,
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { api } from '../api';
 import type { Farm, AdminStats, Farmer, SatelliteIndices } from '../api';
@@ -155,21 +159,27 @@ export default function Dashboard() {
   // Admin state
   const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [recentFarmers, setRecentFarmers] = useState<Farmer[]>([]);
+  const [adminScans, setAdminScans] = useState<any[]>([]);
+  const [viewingLeafPhoto, setViewingLeafPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       try {
         if (role === 'admin') {
-          const [statsRes, farmersRes] = await Promise.allSettled([
+          const [statsRes, farmersRes, scansRes] = await Promise.allSettled([
             api.getAdminStats(),
-            api.getFarmers(1, 5)
+            api.getFarmers(1, 5),
+            api.getAllScans(6)
           ]);
           if (statsRes.status === 'fulfilled' && statsRes.value.success) {
             setAdminStats(statsRes.value.data);
           }
           if (farmersRes.status === 'fulfilled' && farmersRes.value.success) {
             setRecentFarmers(farmersRes.value.data);
+          }
+          if (scansRes.status === 'fulfilled' && scansRes.value.success) {
+            setAdminScans(scansRes.value.data);
           }
         } else {
           const [farmsRes, notifsRes] = await Promise.allSettled([
@@ -476,6 +486,159 @@ export default function Dashboard() {
             </table>
           </div>
         </div>
+
+        {/* Live Farmer Leaf Disease Scans Audit Feed */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                <Camera size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Live Farmer Leaf Disease Diagnostics Feed
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Real-time photographic evidence and pathology assessments uploaded by farmers
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/farmers"
+              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+            >
+              All Scans in Farmers Directory &rarr;
+            </Link>
+          </div>
+
+          {adminScans.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+              <Camera size={24} className="mx-auto mb-1.5 text-slate-300" />
+              No crop health scans submitted by farmers yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {adminScans.map((scan) => {
+                const isSevere = scan.severity?.toLowerCase() === 'severe' || scan.severity?.toLowerCase() === 'high';
+                const isModerate = scan.severity?.toLowerCase() === 'moderate';
+                const imgSource = scan.image_data_uri || scan.image_url;
+
+                return (
+                  <div
+                    key={scan.id}
+                    className="p-3.5 rounded-xl border border-slate-200 hover:border-emerald-400 hover:shadow-md transition-all bg-slate-50/50 flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Leaf Photo */}
+                      <div className="relative w-full h-36 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 mb-2.5 group">
+                        {imgSource ? (
+                          <img
+                            src={api.resolveMediaUrl(imgSource)}
+                            alt="Leaf Evidence"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
+                            onClick={() => setViewingLeafPhoto(api.resolveMediaUrl(imgSource))}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 text-[10px]">
+                            <Camera size={22} className="mb-1" />
+                            <span>No Photo Attached</span>
+                          </div>
+                        )}
+                        <span className={`absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shadow-xs ${
+                          isSevere 
+                            ? 'bg-red-500 text-white' 
+                            : isModerate 
+                            ? 'bg-amber-500 text-white' 
+                            : 'bg-emerald-600 text-white'
+                        }`}>
+                          {scan.severity || 'Normal'}
+                        </span>
+                        {imgSource && (
+                          <button
+                            type="button"
+                            onClick={() => setViewingLeafPhoto(api.resolveMediaUrl(imgSource))}
+                            className="absolute bottom-2 left-2 text-[10px] bg-slate-900/80 hover:bg-slate-900 text-white font-semibold px-2 py-0.5 rounded backdrop-blur-xs flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <Eye size={11} /> Inspect Photo
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Farmer & Farm Info */}
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="font-bold text-slate-900">{scan.farmer_name || 'Farmer'}</span>
+                        <span className="text-[11px] font-mono text-slate-500">{scan.farmer_phone || ''}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mb-1.5 truncate">
+                        Plot: <span className="font-medium text-slate-700">{scan.farm_name}</span> &bull; Crop: <span className="font-semibold text-emerald-800">{scan.crop}</span>
+                      </p>
+
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block">AI Pathology</span>
+                        <h4 className="font-bold text-xs text-slate-800 line-clamp-1">
+                          {scan.label || scan.disease}
+                        </h4>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">
+                        Confidence: <strong className="text-slate-800">{Math.round((scan.confidence || 0.9) * 100)}%</strong>
+                      </span>
+                      <span className="text-slate-400 font-mono text-[10px]">
+                        {scan.created_at ? scan.created_at.split('T')[0] : 'Today'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Admin Leaf Inspection Lightbox Modal */}
+        {viewingLeafPhoto && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200"
+            onClick={() => setViewingLeafPhoto(null)}
+          >
+            <div 
+              className="relative max-w-3xl max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 bg-slate-900/90 border-b border-slate-800">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Camera size={14} className="text-emerald-400" />
+                  <span>किसान द्वारा खींची गई पत्ती की मूल फोटो (Farmer Leaf Evidence)</span>
+                </span>
+                <button 
+                  onClick={() => setViewingLeafPhoto(null)}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="p-2 sm:p-4 overflow-auto flex items-center justify-center bg-black/40">
+                <img 
+                  src={viewingLeafPhoto} 
+                  alt="High-Res Leaf Evidence" 
+                  className="max-h-[75vh] w-auto max-w-full rounded-xl object-contain shadow-lg"
+                />
+              </div>
+              <div className="px-4 py-2.5 bg-slate-900/95 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                <span>Submitted by farmer for AI diagnosis and PMFBY agronomic evaluation</span>
+                <button
+                  type="button"
+                  onClick={() => window.open(viewingLeafPhoto, '_blank')}
+                  className="text-emerald-400 hover:underline flex items-center gap-1 font-semibold"
+                >
+                  <ExternalLink size={12} /> Open Full High-Res Image
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

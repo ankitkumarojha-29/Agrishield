@@ -344,11 +344,15 @@ export type FarmerOverview = {
     created_at: string;
     confidence: number;
     disease: string;
+    label?: string;
     severity: string;
     crop: string;
     growth_stage: string;
     recommendations: string[];
+    treatment?: string;
+    prevention?: string;
     image_data_uri: string;
+    image_url?: string;
     farm_name: string;
   }[];
   soil_reports: {
@@ -563,6 +567,24 @@ export const api = {
         soil_reports: []
       });
     }
+  },
+
+  getAllScans: async (limit = 50): Promise<Envelope<any[]>> => {
+    try {
+      const res = await apiClient.get(`/admin/scans?limit=${limit}`);
+      return res.data;
+    } catch (err) {
+      return createMockResponse([]);
+    }
+  },
+
+  resolveMediaUrl: (url?: string): string => {
+    if (!url) return '';
+    if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '').replace(/\/api\/v1$/, '');
+    return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
   },
 
   broadcastAlert: async (payload: { title: string; message: string; severity?: string; target_crop?: string }): Promise<Envelope<any>> => {

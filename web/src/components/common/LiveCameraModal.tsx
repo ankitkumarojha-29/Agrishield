@@ -131,7 +131,7 @@ export function LiveCameraModal({
   };
 
   const handleConfirmPhoto = () => {
-    if (!capturedBlob || !capturedPreview) return;
+    if (!capturedBlob) return;
 
     const file = new File(
       [capturedBlob],
@@ -140,7 +140,7 @@ export function LiveCameraModal({
     );
 
     stopStream();
-    onCapture(file, capturedPreview);
+    onCapture(file, capturedPreview || '');
     onClose();
   };
 

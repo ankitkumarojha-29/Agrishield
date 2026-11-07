@@ -13,9 +13,11 @@ from schemas.contract import Envelope, EnvelopeMeta, EnvelopeError, GeoPolygon, 
 from services.polygon_validator import validate_farm_boundary
 from services.ai_client import get_ai_client
 from db.session import get_db
-from db.models import Farm, User, UserRole, PolicyStatus, SoilReport, SoilReportSource, AIAssessment, AssessmentType, Notification, NotificationType
+from db.models import Farm, User, UserRole, PolicyStatus, SoilReport, SoilReportSource, AIAssessment, AssessmentType, Notification, NotificationType, FileRecord
 from api.auth import get_current_user, get_optional_current_user, get_admin_user, _ok, _error
 import base64
+import io
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -201,16 +203,27 @@ async def get_my_crop_scans(
         matches_user = str(p.get("user_id", "")) == str(current_user.id)
         matches_farm = (s.farm_id in farm_ids) if (s.farm_id and farm_ids) else False
         if is_admin or matches_user or matches_farm:
+            img_uri = p.get("image_data_uri") or ""
+            img_url = p.get("image_url") or ""
+            if not img_uri and img_url:
+                img_uri = img_url
             my_scans.append({
                 "id": str(s.id),
                 "created_at": s.created_at.isoformat() if s.created_at else None,
                 "confidence": s.confidence,
                 "disease": p.get("disease") or p.get("diagnosis") or "Healthy Leaf",
+                "label": p.get("diagnosis") or p.get("disease") or "Healthy Leaf",
                 "severity": p.get("severity") or "LOW",
                 "crop": p.get("crop") or "Crop",
                 "growth_stage": p.get("growth_stage") or "vegetative",
+                "treatment": p.get("treatment") or (p.get("recommendations", [""])[0] if p.get("recommendations") else ""),
+                "prevention": p.get("prevention") or (p.get("recommendations", ["", ""])[1] if len(p.get("recommendations", [])) > 1 else ""),
                 "recommendations": p.get("recommendations") or [],
-                "image_data_uri": p.get("image_data_uri") or "",
+                "image_data_uri": img_uri,
+                "image_url": img_url,
+                "farmer_name": p.get("farmer_name") or "Farmer",
+                "farmer_phone": p.get("farmer_phone") or "",
+                "user_id": str(p.get("user_id", "")),
                 "farm_name": p.get("farm_name") or (farm_name_map.get(str(s.farm_id)) if s.farm_id else "Field Scan")
             })
 
@@ -464,16 +477,38 @@ async def farm_crop_health(
         ai = get_ai_client()
         result = await ai.get_crop_health(image_bytes, crop, growth_stage)
 
-        # Store image thumbnail data URI so admin and farmer can review uploaded leaf photos
+        # 1. Permanently store original leaf photo in FileRecord
+        file_id = None
+        image_url = ""
+        try:
+            file_rec = FileRecord(
+                data=image_bytes,
+                mime_type=image.content_type or "image/jpeg"
+            )
+            db.add(file_rec)
+            await db.flush()
+            file_id = str(file_rec.id)
+            image_url = f"/api/v1/files/{file_id}"
+        except Exception as file_err:
+            print(f"Warning: Failed to save leaf file record: {file_err}")
+
+        # 2. Generate a valid, non-corrupt thumbnail data URI (using PIL or full bytes)
         data_uri = ""
         try:
-            # Keep up to 350KB thumbnail
-            thumb_slice = image_bytes[:350000]
-            thumb_b64 = base64.b64encode(thumb_slice).decode("utf-8")
-            ct = image.content_type or "image/jpeg"
-            data_uri = f"data:{ct};base64,{thumb_b64}"
+            pil_img = Image.open(io.BytesIO(image_bytes))
+            if pil_img.mode in ("RGBA", "P"):
+                pil_img = pil_img.convert("RGB")
+            pil_img.thumbnail((480, 480))
+            thumb_buf = io.BytesIO()
+            pil_img.save(thumb_buf, format="JPEG", quality=75)
+            thumb_b64 = base64.b64encode(thumb_buf.getvalue()).decode("utf-8")
+            data_uri = f"data:image/jpeg;base64,{thumb_b64}"
         except Exception:
-            pass
+            if len(image_bytes) <= 500000:
+                ct = image.content_type or "image/jpeg"
+                data_uri = f"data:{ct};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+            elif image_url:
+                data_uri = image_url
 
         try:
             assessment = AIAssessment(
@@ -492,12 +527,21 @@ async def farm_crop_health(
                     "diagnosis": result.get("label") or result.get("diagnosis", "Healthy"),
                     "disease": result.get("label") or result.get("disease", "Healthy"),
                     "severity": result.get("severity", "LOW"),
+                    "treatment": result.get("treatment") or (result.get("recommendations", [""])[0] if result.get("recommendations") else ""),
+                    "prevention": result.get("prevention") or (result.get("recommendations", ["", ""])[1] if len(result.get("recommendations", [])) > 1 else ""),
                     "recommendations": result.get("recommendations", []),
+                    "file_id": file_id,
+                    "image_url": image_url,
                     "image_data_uri": data_uri
                 }
             )
             db.add(assessment)
             await db.commit()
+            await db.refresh(assessment)
+            result["id"] = str(assessment.id)
+            result["file_id"] = file_id
+            result["image_url"] = image_url
+            result["image_data_uri"] = data_uri
         except Exception as save_err:
             # Do not block client response if persistence fails
             print(f"Warning: Failed to save crop scan assessment: {save_err}")

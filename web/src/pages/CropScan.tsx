@@ -7,7 +7,10 @@ import {
   Sparkles, 
   RefreshCw, 
   Camera,
-  Zap
+  Zap,
+  History,
+  Clock,
+  ChevronRight
 } from 'lucide-react';
 import { api } from '../api';
 import type { CropHealthResult } from '../api';
@@ -26,16 +29,37 @@ export default function CropScan() {
   const [result, setResult] = useState<CropHealthResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [recentScans, setRecentScans] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLiveCapture = async (file: File, url: string) => {
+  const loadScanHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await api.getMyCropScans();
+      if (res.success && res.data) {
+        setRecentScans(res.data);
+      }
+    } catch (err) {
+      console.warn('Failed to load past scans:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    loadScanHistory();
+  }, []);
+
+  const handleLiveCapture = async (file: File) => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
     const comp = await compressImage(file, { maxDimension: 1600, quality: 0.84 });
+    const localUrl = URL.createObjectURL(comp.file);
     setSelectedFile(comp.file);
-    setPreviewUrl(url);
+    setPreviewUrl(localUrl);
     setResult(null);
     setError(null);
     if (comp.wasCompressed) {
@@ -47,6 +71,30 @@ export default function CropScan() {
     } else {
       setCompressionInfo(null);
     }
+  };
+
+  const handleSelectPastScan = (scan: any) => {
+    const img = scan.image_data_uri || scan.image_url;
+    if (img) {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setPreviewUrl(api.resolveMediaUrl(img));
+      setSelectedFile(null);
+      setCompressionInfo(null);
+    }
+    setCrop(scan.crop || 'Wheat');
+    setGrowthStage(scan.growth_stage || 'vegetative');
+    setResult({
+      label: scan.label || scan.disease || 'Analyzed Crop Leaf',
+      severity: (scan.severity || 'moderate').toLowerCase() as any,
+      confidence: scan.confidence || 0.9,
+      model_version: 'cv-efficientnet-b0-v1',
+      treatment: scan.treatment || (scan.recommendations && scan.recommendations[0]) || 'अनुशंसित कवकनाशी या कीटनाशक का छिड़काव करें।',
+      prevention: scan.prevention || (scan.recommendations && scan.recommendations[1]) || 'खेत में स्वच्छता बनाए रखें और रोगी पत्तियों को अलग करें।',
+      low_confidence: false
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -113,6 +161,7 @@ export default function CropScan() {
           }
         }
         setResult(data);
+        loadScanHistory();
       } else {
         setError(res.error?.message || 'रोग जांच में समस्या आई (Crop disease analysis failed).');
       }
@@ -380,6 +429,105 @@ export default function CropScan() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Farmer Recent Scans History Section */}
+      <div className="mt-8 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <History size={16} />
+            </div>
+            <div>
+              <h2 className="text-sm md:text-base font-bold text-slate-900">
+                हालिया पत्ती स्कैन इतिहास (Your Disease Scan History)
+              </h2>
+              <p className="text-[11px] text-slate-500">
+                आपके द्वारा पूर्व में खींची गई पत्तियों की फोटो व AI निदान परिणाम
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
+            कुल स्कैन: {recentScans.length}
+          </span>
+        </div>
+
+        {loadingHistory ? (
+          <div className="py-8 text-center text-xs text-slate-400">
+            <RefreshCw size={20} className="animate-spin mx-auto mb-2 text-emerald-600" />
+            स्कैन इतिहास लोड हो रहा है...
+          </div>
+        ) : recentScans.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+            <Camera size={24} className="mx-auto mb-1.5 text-slate-300" />
+            अभी तक कोई पिछला पत्ती स्कैन सहेजा नहीं गया है। ऊपर से लाइव फोटो खींचकर AI जांच करें।
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+            {recentScans.map((scan) => {
+              const isSevere = scan.severity?.toLowerCase() === 'severe' || scan.severity?.toLowerCase() === 'high';
+              const isModerate = scan.severity?.toLowerCase() === 'moderate';
+              const imgSource = scan.image_data_uri || scan.image_url;
+
+              return (
+                <div 
+                  key={scan.id} 
+                  onClick={() => handleSelectPastScan(scan)}
+                  className="group p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:shadow-md transition-all cursor-pointer bg-slate-50/50 hover:bg-white flex flex-col justify-between"
+                >
+                  <div>
+                    {/* Thumbnail */}
+                    <div className="relative w-full h-32 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 mb-2.5">
+                      {imgSource ? (
+                        <img 
+                          src={api.resolveMediaUrl(imgSource)} 
+                          alt="Leaf Evidence" 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 text-[10px]">
+                          <Camera size={22} className="mb-1" />
+                          <span>No Image Preview</span>
+                        </div>
+                      )}
+                      <span className={`absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shadow-xs ${
+                        isSevere 
+                          ? 'bg-red-500 text-white' 
+                          : isModerate 
+                          ? 'bg-amber-500 text-white' 
+                          : 'bg-emerald-600 text-white'
+                      }`}>
+                        {scan.severity || 'Normal'}
+                      </span>
+                    </div>
+
+                    {/* Meta */}
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                      <span className="font-semibold text-emerald-800">{scan.crop || 'Foliage'}</span>
+                      <span className="flex items-center gap-1 font-mono text-[10px]">
+                        <Clock size={11} /> {scan.created_at ? scan.created_at.split('T')[0] : 'Today'}
+                      </span>
+                    </div>
+
+                    <h4 className="font-bold text-xs text-slate-900 line-clamp-1 group-hover:text-emerald-700 transition-colors">
+                      {scan.label || scan.disease}
+                    </h4>
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-500">
+                      विश्वास: <strong className="text-slate-800">{Math.round((scan.confidence || 0.9) * 100)}%</strong>
+                    </span>
+                    <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                      देखें <ChevronRight size={13} />
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Live Camera Viewfinder Modal */}

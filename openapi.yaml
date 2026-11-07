@@ -622,6 +622,15 @@ paths:
           schema: { type: string }
       responses: { '200': { description: OK } }
 
+  /admin/scans:
+    get:
+      summary: Retrieve recent leaf disease scans across all farmers for administrative audit
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+      responses: { '200': { description: OK } }
+
   /admin/alerts/broadcast:
     post:
       summary: Broadcast high-priority weather and pest alerts to all registered farmers
