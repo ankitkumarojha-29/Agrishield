@@ -209,9 +209,10 @@ async def get_farmer_overview(
     farmer_scans = []
     for scan in all_scans:
         p = scan.payload or {}
-        matches_user = str(p.get("user_id", "")) == str(farmer_id)
+        matches_user = str(p.get("user_id", "")).lower() in (str(farmer_id).lower(), str(f_uuid).lower())
         matches_farm = (scan.farm_id in farm_ids) if (scan.farm_id and farm_ids) else False
-        if matches_user or matches_farm:
+        matches_phone = bool(farmer.phone and str(p.get("farmer_phone", "")).strip() == str(farmer.phone).strip())
+        if matches_user or matches_farm or matches_phone:
             img_uri = p.get("image_data_uri") or ""
             img_url = p.get("image_url") or ""
             if not img_uri and img_url:

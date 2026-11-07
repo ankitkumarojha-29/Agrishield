@@ -16,11 +16,13 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Eye
+  Eye,
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
 import { api } from '../api';
 import type { Farmer, Farm, FarmerOverview } from '../api';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { DEFAULT_AVATAR } from '../context/RoleContext';
 import { CROPS_CATALOG, fetchCropsCatalog, type CropInfo } from '../data/agriCatalog';
 import { TableSkeleton, Skeleton } from '../components/common/Skeleton';
@@ -56,6 +58,7 @@ export default function Farmers() {
   const [cropsList, setCropsList] = useState<CropInfo[]>(CROPS_CATALOG);
   const [plotSearch, setPlotSearch] = useState('');
   const [previewModalImage, setPreviewModalImage] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     fetchCropsCatalog().then(data => {
@@ -85,9 +88,9 @@ export default function Farmers() {
     }
   };
 
-  const handleInspectFarmer = async (farmer: Farmer) => {
+  const handleInspectFarmer = async (farmer: Farmer, initialTab: 'farms' | 'scans' | 'soil' = 'farms') => {
     setSelectedFarmer(farmer);
-    setActiveTab('farms');
+    setActiveTab(initialTab);
     setPlotSearch('');
     setLoadingFarms(true);
     try {
@@ -109,6 +112,17 @@ export default function Farmers() {
       setLoadingFarms(false);
     }
   };
+
+  useEffect(() => {
+    const inspectParam = searchParams.get('inspect') || searchParams.get('farmerId');
+    const tabParam = (searchParams.get('tab') as 'farms' | 'scans' | 'soil') || 'scans';
+    if (inspectParam && farmers.length > 0) {
+      const target = farmers.find(f => f.id === inspectParam || f.phone === inspectParam);
+      if (target) {
+        handleInspectFarmer(target, tabParam);
+      }
+    }
+  }, [searchParams, farmers]);
 
   const handleExportCSV = () => {
     if (farmers.length === 0) return;
@@ -473,8 +487,8 @@ export default function Farmers() {
 
       {/* Farmer Inspection Slide-Over / Modal */}
       {selectedFarmer && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white h-full shadow-2xl p-6 overflow-y-auto space-y-6">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+          <div className="w-full max-w-full sm:max-w-xl md:max-w-2xl bg-white h-full shadow-2xl p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-300 shadow-xs shrink-0">
@@ -493,12 +507,13 @@ export default function Farmers() {
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
                     Farmer Details
                   </span>
-                  <h2 className="text-xl font-bold text-slate-900 mt-0.5">{selectedFarmer.name}</h2>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5 truncate">{selectedFarmer.name}</h2>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedFarmer(null)}
-                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl"
+                className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl min-w-[40px] min-h-[40px] flex items-center justify-center cursor-pointer transition-colors"
+                title="Close drawer"
               >
                 <X size={20} />
               </button>
@@ -507,7 +522,7 @@ export default function Farmers() {
             {/* Farmer Contact Card */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 text-xs">
               <div className="flex items-center gap-2 text-slate-700">
-                <Phone size={15} className="text-emerald-600" />
+                <Phone size={15} className="text-emerald-600 shrink-0" />
                 <span className="font-semibold">Phone:</span>
                 <span className="font-mono font-bold text-slate-900">{selectedFarmer.phone}</span>
                 <a 
@@ -519,52 +534,55 @@ export default function Farmers() {
               </div>
               {selectedFarmer.email && (
                 <div className="flex items-center gap-2 text-slate-700">
-                  <Mail size={15} className="text-slate-500" />
+                  <Mail size={15} className="text-slate-500 shrink-0" />
                   <span className="font-semibold">Email:</span>
-                  <span>{selectedFarmer.email}</span>
+                  <span className="truncate">{selectedFarmer.email}</span>
                 </div>
               )}
               <div className="flex items-center gap-2 text-slate-700">
-                <Calendar size={15} className="text-slate-500" />
+                <Calendar size={15} className="text-slate-500 shrink-0" />
                 <span className="font-semibold">Registered:</span>
                 <span>{selectedFarmer.created_at ? selectedFarmer.created_at.split('T')[0] : 'Active'}</span>
               </div>
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex border-b border-slate-200">
+            <div className="flex border-b border-slate-200 gap-1 overflow-x-auto pb-1">
               <button
+                type="button"
                 onClick={() => setActiveTab('farms')}
-                className={`flex-1 py-2.5 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 transition-colors ${
+                className={`flex-1 min-w-[100px] py-2.5 px-2 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-h-[44px] ${
                   activeTab === 'farms'
                     ? 'border-emerald-600 text-emerald-800 bg-emerald-50/50'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <Layers size={14} />
-                Plots ({farmerFarms.length})
+                <span>खेत ({farmerFarms.length})</span>
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('scans')}
-                className={`flex-1 py-2.5 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 transition-colors ${
+                className={`flex-1 min-w-[120px] py-2.5 px-2 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-h-[44px] ${
                   activeTab === 'scans'
                     ? 'border-emerald-600 text-emerald-800 bg-emerald-50/50'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <Camera size={14} />
-                Leaf Scans ({farmerOverview?.scans?.length || 0})
+                <span>पत्ती स्कैन ({farmerOverview?.scans?.length || 0})</span>
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('soil')}
-                className={`flex-1 py-2.5 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 transition-colors ${
+                className={`flex-1 min-w-[110px] py-2.5 px-2 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-h-[44px] ${
                   activeTab === 'soil'
                     ? 'border-emerald-600 text-emerald-800 bg-emerald-50/50'
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <FlaskConical size={14} />
-                Soil Tests ({farmerOverview?.soil_reports?.length || 0})
+                <span>मृदा कार्ड ({farmerOverview?.soil_reports?.length || 0})</span>
               </button>
             </div>
 
@@ -671,82 +689,156 @@ export default function Farmers() {
             )}
 
             {activeTab === 'scans' && (
-              <div className="space-y-3">
-                {(!farmerOverview?.scans || farmerOverview.scans.length === 0) ? (
-                  <div className="p-8 text-center border border-dashed border-slate-200 rounded-xl text-xs text-slate-500">
-                    <Camera size={24} className="mx-auto text-slate-300 mb-2" />
-                    No leaf crop health scans submitted by this farmer yet.
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <Camera size={14} className="text-emerald-600" />
+                      <span>किसान पत्ती रोग जांच (Crop Pathology Evidence)</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      किसान द्वारा खेत में खींची गई फोटो एवं AI निदान का विवरण
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                    कुल: {farmerOverview?.scans?.length || 0}
+                  </span>
+                </div>
+
+                {loadingFarms ? (
+                  <div className="space-y-3 py-2">
+                    <Skeleton className="h-44 w-full rounded-2xl" />
+                    <Skeleton className="h-44 w-full rounded-2xl" />
+                  </div>
+                ) : (!farmerOverview?.scans || farmerOverview.scans.length === 0) ? (
+                  <div className="p-8 text-center border border-dashed border-slate-200 rounded-2xl text-xs text-slate-500 bg-slate-50/50">
+                    <Camera size={28} className="mx-auto text-slate-300 mb-2" />
+                    <p className="font-bold text-slate-700 mb-1">कोई पत्ती स्कैन उपलब्ध नहीं (No Leaf Scans)</p>
+                    <p className="text-slate-400">इस किसान ने अभी तक फसल रोग जांच के लिए कोई पत्ती की फोटो अपलोड नहीं की है।</p>
                   </div>
                 ) : (
-                  farmerOverview.scans.map((scan) => (
-                    <div key={scan.id} className="p-4 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 transition-all space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 text-sm">{scan.disease}</span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                              scan.severity?.toLowerCase() === 'severe' || scan.severity?.toLowerCase() === 'high'
-                                ? 'bg-red-50 text-red-700 border border-red-200'
-                                : scan.severity?.toLowerCase() === 'moderate'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            }`}>
-                              {scan.severity}
+                  farmerOverview.scans.map((scan) => {
+                    const isSevere = scan.severity?.toLowerCase() === 'severe' || scan.severity?.toLowerCase() === 'high';
+                    const isModerate = scan.severity?.toLowerCase() === 'moderate';
+                    const leafImg = scan.image_data_uri || scan.image_url;
+
+                    return (
+                      <div 
+                        key={scan.id} 
+                        className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-emerald-400 shadow-xs hover:shadow-md transition-all space-y-3.5"
+                      >
+                        {/* Scan Top Header: Disease & Severity */}
+                        <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-extrabold text-slate-900 text-sm md:text-base">
+                                {scan.label || scan.disease}
+                              </span>
+                              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1 shadow-2xs ${
+                                isSevere
+                                  ? 'bg-red-50 text-red-700 border border-red-200'
+                                  : isModerate
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              }`}>
+                                {isSevere ? <AlertTriangle size={11} /> : <CheckCircle2 size={11} />}
+                                <span>{scan.severity || 'Normal'}</span>
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                              <span>खेत: <strong className="text-slate-700">{scan.farm_name || 'Field Plot'}</strong></span>
+                              <span>&bull;</span>
+                              <span>फसल: <strong className="text-emerald-800">{scan.crop}</strong></span>
+                              <span>&bull;</span>
+                              <span>अवस्था: <span className="capitalize">{scan.growth_stage}</span></span>
+                            </p>
+                          </div>
+                          {scan.created_at && (
+                            <span className="text-[10px] text-slate-400 font-mono bg-slate-50 px-2 py-1 rounded-md shrink-0">
+                              {scan.created_at.split('T')[0]}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Uploaded Leaf Photo Display */}
+                        {leafImg ? (
+                          <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group shadow-xs">
+                            <img 
+                              src={api.resolveMediaUrl(leafImg)} 
+                              alt="Farmer Uploaded Leaf Evidence" 
+                              className="w-full h-44 sm:h-52 object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
+                              onClick={() => setPreviewModalImage(api.resolveMediaUrl(leafImg))}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                            <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                              <span className="text-[10px] bg-slate-900/80 text-white font-bold px-2 py-0.5 rounded-md backdrop-blur-xs shadow-xs">
+                                📷 Farmer Photo Evidence
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewModalImage(api.resolveMediaUrl(leafImg))}
+                              className="absolute bottom-2 right-2 text-xs bg-slate-900/90 hover:bg-slate-900 text-white font-bold px-3 py-1.5 rounded-xl backdrop-blur-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105"
+                            >
+                              <Eye size={13} />
+                              <span>बड़ा फोटो देखें (Inspect Full Photo)</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-400 italic flex items-center gap-2">
+                            <Camera size={16} className="text-slate-300 shrink-0" />
+                            <span>No leaf photograph uploaded with this scan</span>
+                          </div>
+                        )}
+
+                        {/* AI Confidence & Diagnostics Bar */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">AI Confidence Score</span>
+                            <div className="flex items-baseline gap-1.5 mt-0.5">
+                              <span className="text-base font-extrabold text-emerald-700">
+                                {Math.round((scan.confidence || 0.9) * 100)}%
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-medium">Precision Rating</span>
+                            </div>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Model Engine</span>
+                            <span className="text-xs font-bold text-slate-800 mt-1 block font-mono">
+                              EfficientNet-B0
                             </span>
                           </div>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Crop: <span className="font-semibold text-slate-700">{scan.crop}</span> • Confidence: <span className="font-bold text-slate-800">{Math.round((scan.confidence || 0.9) * 100)}%</span>
-                          </p>
                         </div>
-                        {scan.created_at && (
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {scan.created_at.split('T')[0]}
-                          </span>
+
+                        {/* Agronomic Curative Treatment */}
+                        {(scan.treatment || (scan.recommendations && scan.recommendations[0])) && (
+                          <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs space-y-1">
+                            <h4 className="font-bold text-emerald-950 flex items-center gap-1.5 text-xs">
+                              <Sparkles size={14} className="text-emerald-700 shrink-0" />
+                              <span>अनुशंसित उपचार (Curative Agronomic Prescription):</span>
+                            </h4>
+                            <p className="text-emerald-900 leading-relaxed text-[11px] pl-5">
+                              {scan.treatment || scan.recommendations[0]}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Long-Term Preventive Measures */}
+                        {(scan.prevention || (scan.recommendations && scan.recommendations.length > 1 && scan.recommendations[1])) && (
+                          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                            <h4 className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                              <CheckCircle2 size={14} className="text-slate-600 shrink-0" />
+                              <span>दीर्घकालिक रोकथाम (Long-Term Prevention):</span>
+                            </h4>
+                            <p className="text-slate-600 leading-relaxed text-[11px] pl-5">
+                              {scan.prevention || scan.recommendations[1]}
+                            </p>
+                          </div>
                         )}
                       </div>
-
-                      {/* Uploaded Leaf Photo Display */}
-                      {(scan.image_data_uri || scan.image_url) ? (
-                        <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group">
-                          <img 
-                            src={api.resolveMediaUrl(scan.image_data_uri || scan.image_url)} 
-                            alt="Leaf Scan Evidence" 
-                            className="w-full h-44 object-cover hover:scale-105 transition-transform cursor-pointer"
-                            onClick={() => setPreviewModalImage(api.resolveMediaUrl(scan.image_data_uri || scan.image_url))}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setPreviewModalImage(api.resolveMediaUrl(scan.image_data_uri || scan.image_url))}
-                            className="absolute bottom-2 right-2 text-[10px] bg-slate-900/85 hover:bg-slate-900 text-white font-bold px-2.5 py-1 rounded-lg backdrop-blur-xs flex items-center gap-1 cursor-pointer transition-colors"
-                          >
-                            <Eye size={12} /> बड़ा फोटो देखें (Inspect Photo)
-                          </button>
-                          <span className="absolute top-2 left-2 text-[10px] bg-emerald-900/80 text-white font-semibold px-2 py-0.5 rounded-md backdrop-blur-xs">
-                            Farmer Evidence
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-400 italic flex items-center gap-1.5">
-                          <Camera size={14} className="text-slate-300" />
-                          <span>No leaf photograph uploaded</span>
-                        </div>
-                      )}
-
-                      {/* Recommendations */}
-                      {scan.recommendations && scan.recommendations.length > 0 && (
-                        <div className="bg-emerald-50/70 border border-emerald-100 rounded-lg p-2.5 text-xs text-emerald-950 space-y-1">
-                          <span className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider block">
-                            AI Agronomic Treatment:
-                          </span>
-                          <ul className="list-disc list-inside space-y-0.5 text-[11px]">
-                            {scan.recommendations.map((rec, i) => (
-                              <li key={i}>{rec}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}

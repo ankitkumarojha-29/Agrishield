@@ -582,13 +582,17 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="mt-3 pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
                       <span className="text-slate-500">
                         Confidence: <strong className="text-slate-800">{Math.round((scan.confidence || 0.9) * 100)}%</strong>
                       </span>
-                      <span className="text-slate-400 font-mono text-[10px]">
-                        {scan.created_at ? scan.created_at.split('T')[0] : 'Today'}
-                      </span>
+                      <Link
+                        to={`/farmers?inspect=${scan.user_id || scan.farmer_phone}&tab=scans`}
+                        className="font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-0.5"
+                      >
+                        <span>Farmer Details</span>
+                        <ChevronRight size={13} />
+                      </Link>
                     </div>
                   </div>
                 );
