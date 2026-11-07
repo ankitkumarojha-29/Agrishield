@@ -79,6 +79,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Fast-fail connection timeout (3.5s connect, 25s read) so when tunnel/laptop is offline,
+# fallback triggers seamlessly in seconds without freezing the farmer's browser
+AI_HTTP_TIMEOUT = httpx.Timeout(25.0, connect=3.5)
+
 
 class HttpAIClient(AIClient):
     def __init__(self, base_url: str):
@@ -91,7 +95,7 @@ class HttpAIClient(AIClient):
 
     async def get_crop_health(self, image_bytes: bytes, crop: str, growth_stage: str):
         try:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=self._headers) as client:
+            async with httpx.AsyncClient(timeout=AI_HTTP_TIMEOUT, follow_redirects=True, headers=self._headers) as client:
                 r = await client.post(
                     f"{self.base_url}/v1/crop-health/",
                     files={"image": ("image.jpg", image_bytes, "image/jpeg")},
@@ -105,7 +109,7 @@ class HttpAIClient(AIClient):
 
     async def get_damage_assessment(self, image_bytes: bytes, crop: str, event_type: str):
         try:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=self._headers) as client:
+            async with httpx.AsyncClient(timeout=AI_HTTP_TIMEOUT, follow_redirects=True, headers=self._headers) as client:
                 r = await client.post(
                     f"{self.base_url}/v1/damage-assessment/",
                     files={"images": ("image.jpg", image_bytes, "image/jpeg")},
@@ -164,7 +168,7 @@ class HttpAIClient(AIClient):
                 "centroid_lat": centroid_lat,
                 "centroid_lon": centroid_lon,
             }
-            async with httpx.AsyncClient(timeout=75.0, follow_redirects=True, headers=self._headers) as client:
+            async with httpx.AsyncClient(timeout=AI_HTTP_TIMEOUT, follow_redirects=True, headers=self._headers) as client:
                 r = await client.post(f"{self.base_url}/v1/yield-prediction/", json=payload)
                 r.raise_for_status()
                 return r.json()
@@ -185,7 +189,7 @@ class HttpAIClient(AIClient):
                     [centroid_lon - 0.005, centroid_lat + 0.005],
                     [centroid_lon - 0.005, centroid_lat - 0.005],
                 ]
-            async with httpx.AsyncClient(timeout=75.0, follow_redirects=True, headers=self._headers) as client:
+            async with httpx.AsyncClient(timeout=AI_HTTP_TIMEOUT, follow_redirects=True, headers=self._headers) as client:
                 r = await client.post(
                     f"{self.base_url}/v1/risk-score/",
                     json={
@@ -208,7 +212,7 @@ class HttpAIClient(AIClient):
 
     async def get_soil_ocr(self, file_bytes: bytes, filename: str):
         try:
-            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True, headers=self._headers) as client:
+            async with httpx.AsyncClient(timeout=AI_HTTP_TIMEOUT, follow_redirects=True, headers=self._headers) as client:
                 r = await client.post(
                     f"{self.base_url}/v1/soil-ocr/",
                     files={"file": (filename, file_bytes, "application/octet-stream")},
@@ -226,7 +230,7 @@ class HttpAIClient(AIClient):
 
     async def get_advisory(self, farm_context: dict):
         try:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=self._headers) as client:
+            async with httpx.AsyncClient(timeout=AI_HTTP_TIMEOUT, follow_redirects=True, headers=self._headers) as client:
                 r = await client.post(f"{self.base_url}/v1/advisory/", json=farm_context)
                 r.raise_for_status()
                 return r.json()
