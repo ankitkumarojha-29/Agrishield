@@ -194,29 +194,73 @@ async def get_live_satellite_indices(
                 acquisition_date = now.strftime("%Y-%m-%d")
                 source = "Sentinel-2 L2A Live Telemetry"
 
-            ndvi_status = (
-                "Healthy Dense Canopy" if live_ndvi >= 0.65
-                else ("Moderate Vegetation Vigor" if live_ndvi >= 0.40
-                else "Sparse Vegetation / Bare Soil")
-            )
-            ndmi_status = (
-                "Adequate Moisture (NDMI Optimal)" if live_ndmi >= 0.30
-                else ("Moderate Moisture" if live_ndmi >= 0.15
-                else "Canopy Moisture Deficit")
-            )
-            water_stress = (
-                "Optimal Water Balance" if live_ndwi < -0.05
-                else ("Surface Water Excess" if live_ndwi > 0.05
-                else "High Surface Moisture")
-            )
+            # 1. NDVI (Crop Vigor & Biomass Health)
+            if live_ndvi >= 0.65:
+                ndvi_status = "Healthy Dense Canopy"
+                ndvi_meaning = "Active green crop with dense vegetative growth"
+                ndvi_meaning_hi = "खेत में घनी व स्वस्थ हरी-भरी फसल है"
+            elif live_ndvi >= 0.40:
+                ndvi_status = "Moderate Vegetation Vigor"
+                ndvi_meaning = "Active green crop growing steadily"
+                ndvi_meaning_hi = "फसल हरी-भरी है और अच्छी बढ़त पर है"
+            elif live_ndvi >= 0.20:
+                ndvi_status = "Early Growth / Sparse Foliage"
+                ndvi_meaning = "Young seedlings or sparse foliage stage"
+                ndvi_meaning_hi = "शुरुआती अंकुरण या कम हरियाली की स्थिति"
+            else:
+                ndvi_status = "Bare Soil / Harvested Stubble"
+                ndvi_meaning = "Ploughed soil, post-harvest stubble or dry land"
+                ndvi_meaning_hi = "जुता हुआ खेत या कटाई के बाद के अवशेष"
+
+            # 2. NDMI (Canopy Leaf Hydration - Calibrated for Indian Agro-Climates)
+            if live_ndmi >= 0.20:
+                ndmi_status = "Optimal Canopy Moisture"
+                ndmi_meaning = "Water-rich, lush leaves; no irrigation needed"
+                ndmi_meaning_hi = "पत्तियों में भरपूर नमी, अभी सिंचाई जरूरी नहीं"
+            elif live_ndmi >= 0.00:
+                ndmi_status = "Moderate Moisture (Normal)"
+                ndmi_meaning = "Adequate leaf hydration; normal for dry season"
+                ndmi_meaning_hi = "पत्तियों में पर्याप्त नमी, 4-5 दिन सिंचाई जरूरी नहीं"
+            elif live_ndmi >= -0.15:
+                ndmi_status = "Mild Moisture Deficit"
+                ndmi_meaning = "Canopy moisture depleting; schedule irrigation in 2-3 days"
+                ndmi_meaning_hi = "हल्की नमी की कमी, 2-3 दिनों में सिंचाई करें"
+            else:
+                ndmi_status = "Severe Canopy Moisture Deficit"
+                ndmi_meaning = "Severe drought stress; irrigate immediately"
+                ndmi_meaning_hi = "गंभीर नमी की कमी, तुरंत सिंचाई करें"
+
+            # 3. NDWI (Surface Water Balance & Flood/Waterlogging Risk)
+            if live_ndwi < -0.05:
+                water_stress = "Optimal Water Balance"
+                ndwi_status = "Optimal Water Balance"
+                ndwi_meaning = "Well-drained farmland with zero flood risk"
+                ndwi_meaning_hi = "जलभराव या बाढ़ का कोई खतरा नहीं, जलनिकासी सही है"
+            elif live_ndwi <= 0.10:
+                water_stress = "High Surface Moisture"
+                ndwi_status = "High Surface Moisture"
+                ndwi_meaning = "Surface holds recent irrigation or rainfall"
+                ndwi_meaning_hi = "खेत की सतह पर नमी अधिक है (सिंचाई या बारिश के बाद)"
+            else:
+                water_stress = "Surface Waterlogging / Flood Alert"
+                ndwi_status = "Surface Waterlogging / Flood Alert"
+                ndwi_meaning = "Standing water pooled; risk of crop root suffocation"
+                ndwi_meaning_hi = "खेत में पानी जमा है, तुरंत जलनिकासी करें"
 
             return {
                 "ndvi_mean": live_ndvi,
                 "ndvi_status": ndvi_status,
+                "ndvi_meaning": ndvi_meaning,
+                "ndvi_meaning_hi": ndvi_meaning_hi,
                 "ndmi_mean": live_ndmi,
                 "ndmi_status": ndmi_status,
+                "ndmi_meaning": ndmi_meaning,
+                "ndmi_meaning_hi": ndmi_meaning_hi,
                 "ndwi_mean": live_ndwi,
+                "ndwi_status": ndwi_status,
                 "water_stress": water_stress,
+                "ndwi_meaning": ndwi_meaning,
+                "ndwi_meaning_hi": ndwi_meaning_hi,
                 "satellite": "Sentinel-2 (Copernicus Data Space Ecosystem)",
                 "resolution": "10m Multispectral",
                 "cloud_coverage_pct": round(cloud_cov, 1),
@@ -240,13 +284,22 @@ async def get_live_satellite_indices(
 
     # Fallback with exact coordinates
     base_ndvi = 0.68 if not is_unsown else 0.22
+    base_ndmi = 0.24 if not is_unsown else -0.15
+    base_ndwi = -0.12 if not is_unsown else -0.38
     return {
         "ndvi_mean": base_ndvi,
-        "ndvi_status": "Healthy Dense Vegetation" if base_ndvi > 0.6 else "Low / Bare Soil",
-        "ndmi_mean": 0.42 if not is_unsown else -0.15,
-        "ndmi_status": "Adequate Canopy Moisture" if not is_unsown else "Moisture Deficit",
-        "ndwi_mean": -0.12 if not is_unsown else -0.38,
+        "ndvi_status": "Healthy Dense Canopy" if base_ndvi > 0.6 else "Early Growth / Sparse Foliage",
+        "ndvi_meaning": "Active green crop canopy with good vegetative growth" if base_ndvi > 0.6 else "Sparse foliage or early germination",
+        "ndvi_meaning_hi": "खेत में घनी व स्वस्थ हरी-भरी फसल है" if base_ndvi > 0.6 else "शुरुआती अंकुरण या कम हरियाली की स्थिति",
+        "ndmi_mean": base_ndmi,
+        "ndmi_status": "Optimal Canopy Moisture" if base_ndmi >= 0.2 else "Moderate Moisture (Normal)",
+        "ndmi_meaning": "Water-rich leaves; adequate canopy moisture" if base_ndmi >= 0.2 else "Moderate leaf moisture",
+        "ndmi_meaning_hi": "पत्तियों में भरपूर नमी, अभी सिंचाई जरूरी नहीं" if base_ndmi >= 0.2 else "पत्तियों में पर्याप्त नमी, 4-5 दिन सिंचाई जरूरी नहीं",
+        "ndwi_mean": base_ndwi,
+        "ndwi_status": "Optimal Water Balance",
         "water_stress": "Optimal Water Balance",
+        "ndwi_meaning": "Well-drained farmland with zero flood risk",
+        "ndwi_meaning_hi": "जलभराव या बाढ़ का कोई खतरा नहीं, जलनिकासी सही है",
         "satellite": "Sentinel-2 (Copernicus Data Space)",
         "resolution": "10m Multispectral",
         "cloud_coverage_pct": 2.1,

@@ -310,15 +310,29 @@ export default function FarmDetail() {
                 <span className="text-xs font-bold uppercase tracking-wider">Crop Vigor (NDVI)</span>
                 <Satellite size={18} className="text-emerald-600" />
               </div>
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="text-2xl font-black text-slate-900">
                   {satellite?.ndvi_mean != null ? satellite.ndvi_mean.toFixed(2) : '--'}
                 </span>
-                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  (satellite?.ndvi_mean ?? 0) >= 0.65
+                    ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                    : (satellite?.ndvi_mean ?? 0) >= 0.40
+                    ? 'text-lime-700 bg-lime-50 border border-lime-200'
+                    : (satellite?.ndvi_mean ?? 0) >= 0.20
+                    ? 'text-amber-700 bg-amber-50 border border-amber-200'
+                    : 'text-orange-700 bg-orange-50 border border-orange-200'
+                }`}>
                   {satellite?.ndvi_status || 'Assessing Vigor'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-2">
+              {satellite?.ndvi_meaning_hi && (
+                <p className="text-[11px] text-slate-600 mt-2 font-medium flex items-start gap-1 leading-tight">
+                  <span className="text-emerald-600 shrink-0">🌱</span>
+                  <span>{satellite.ndvi_meaning_hi}</span>
+                </p>
+              )}
+              <p className="text-[11px] text-slate-400 mt-1">
                 {satellite?.satellite || 'Sentinel-2 (Copernicus)'} &bull; {satellite?.resolution || '10m Optical'}
               </p>
             </div>
@@ -329,15 +343,29 @@ export default function FarmDetail() {
                 <span className="text-xs font-bold uppercase tracking-wider">Canopy Moisture (NDMI)</span>
                 <Droplet size={18} className="text-sky-600" />
               </div>
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="text-2xl font-black text-slate-900">
                   {satellite?.ndmi_mean != null ? satellite.ndmi_mean.toFixed(2) : '--'}
                 </span>
-                <span className="text-xs font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  (satellite?.ndmi_mean ?? 0) >= 0.20
+                    ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                    : (satellite?.ndmi_mean ?? 0) >= 0.00
+                    ? 'text-sky-700 bg-sky-50 border border-sky-200'
+                    : (satellite?.ndmi_mean ?? 0) >= -0.15
+                    ? 'text-amber-700 bg-amber-50 border border-amber-200'
+                    : 'text-red-700 bg-red-50 border border-red-200'
+                }`}>
                   {satellite?.ndmi_status || 'Calculating'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-2">
+              {satellite?.ndmi_meaning_hi && (
+                <p className="text-[11px] text-slate-600 mt-2 font-medium flex items-start gap-1 leading-tight">
+                  <span className="text-sky-600 shrink-0">💧</span>
+                  <span>{satellite.ndmi_meaning_hi}</span>
+                </p>
+              )}
+              <p className="text-[11px] text-slate-400 mt-1">
                 {satellite?.water_stress || 'Canopy moisture balance'}
               </p>
             </div>
@@ -461,69 +489,121 @@ export default function FarmDetail() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {/* NDVI Card */}
-            <div className="p-5 rounded-2xl border border-emerald-200 bg-emerald-50/40">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-sm text-emerald-900">NDVI (Vegetation Vigor)</span>
-                <span className="text-xs font-mono font-bold bg-white px-2 py-0.5 rounded-full text-emerald-800 border border-emerald-200">
-                  (NIR - Red) / (NIR + Red)
-                </span>
+            <div className="p-5 rounded-2xl border border-emerald-200 bg-emerald-50/40 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                  <span className="font-bold text-sm text-emerald-900">NDVI (Vegetation Vigor)</span>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                    (satellite?.ndvi_mean ?? 0) >= 0.65
+                      ? 'text-emerald-800 bg-emerald-100 border border-emerald-300'
+                      : (satellite?.ndvi_mean ?? 0) >= 0.40
+                      ? 'text-lime-800 bg-lime-100 border border-lime-300'
+                      : (satellite?.ndvi_mean ?? 0) >= 0.20
+                      ? 'text-amber-800 bg-amber-100 border border-amber-300'
+                      : 'text-orange-800 bg-orange-100 border border-orange-300'
+                  }`}>
+                    {satellite?.ndvi_status || 'Vegetation Vigor'}
+                  </span>
+                </div>
+                <div className="text-3xl font-black text-emerald-700 my-2">
+                  {satellite?.ndvi_mean != null ? satellite.ndvi_mean.toFixed(2) : '--'}
+                </div>
+                <div className="w-full bg-emerald-200 h-2 rounded-full overflow-hidden my-3">
+                  <div 
+                    className="bg-emerald-600 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min(100, Math.max(5, (satellite?.ndvi_mean ?? 0.5) * 100))}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="text-3xl font-black text-emerald-700 my-2">
-                {satellite?.ndvi_mean != null ? satellite.ndvi_mean.toFixed(2) : '--'}
+              <div className="space-y-1 mt-2 border-t border-emerald-100/80 pt-2">
+                {satellite?.ndvi_meaning_hi && (
+                  <p className="text-xs text-emerald-950 font-semibold flex items-start gap-1.5 leading-snug">
+                    <span className="shrink-0">🌱</span>
+                    <span>{satellite.ndvi_meaning_hi}</span>
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 font-normal leading-relaxed">
+                  // {satellite?.ndvi_meaning || satellite?.ndvi_status || 'Assessing crop canopy vigor from Sentinel-2 10m bands.'}
+                </p>
               </div>
-              <div className="w-full bg-emerald-200 h-2 rounded-full overflow-hidden my-3">
-                <div 
-                  className="bg-emerald-600 h-full rounded-full transition-all duration-500" 
-                  style={{ width: `${Math.min(100, Math.max(5, (satellite?.ndvi_mean ?? 0.7) * 100))}%` }}
-                ></div>
-              </div>
-              <p className="text-xs text-emerald-900 leading-relaxed">
-                {satellite?.ndvi_status || 'Assessing crop canopy vigor from Sentinel-2 10m bands.'}
-              </p>
             </div>
 
             {/* NDMI Card */}
-            <div className="p-5 rounded-2xl border border-sky-200 bg-sky-50/40">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-sm text-sky-900">NDMI (Canopy Moisture)</span>
-                <span className="text-xs font-mono font-bold bg-white px-2 py-0.5 rounded-full text-sky-800 border border-sky-200">
-                  (NIR - SWIR) / (NIR + SWIR)
-                </span>
+            <div className="p-5 rounded-2xl border border-sky-200 bg-sky-50/40 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                  <span className="font-bold text-sm text-sky-900">NDMI (Canopy Moisture)</span>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                    (satellite?.ndmi_mean ?? 0) >= 0.20
+                      ? 'text-emerald-800 bg-emerald-100 border border-emerald-300'
+                      : (satellite?.ndmi_mean ?? 0) >= 0.00
+                      ? 'text-sky-800 bg-sky-100 border border-sky-300'
+                      : (satellite?.ndmi_mean ?? 0) >= -0.15
+                      ? 'text-amber-800 bg-amber-100 border border-amber-300'
+                      : 'text-red-800 bg-red-100 border border-red-300'
+                  }`}>
+                    {satellite?.ndmi_status || 'Canopy Moisture'}
+                  </span>
+                </div>
+                <div className="text-3xl font-black text-sky-700 my-2">
+                  {satellite?.ndmi_mean != null ? satellite.ndmi_mean.toFixed(2) : '--'}
+                </div>
+                <div className="w-full bg-sky-200 h-2 rounded-full overflow-hidden my-3">
+                  <div 
+                    className="bg-sky-600 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min(100, Math.max(5, ((satellite?.ndmi_mean ?? 0.0) + 0.3) / 0.9 * 100))}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="text-3xl font-black text-sky-700 my-2">
-                {satellite?.ndmi_mean != null ? satellite.ndmi_mean.toFixed(2) : '--'}
+              <div className="space-y-1 mt-2 border-t border-sky-100/80 pt-2">
+                {satellite?.ndmi_meaning_hi && (
+                  <p className="text-xs text-sky-950 font-semibold flex items-start gap-1.5 leading-snug">
+                    <span className="shrink-0">💧</span>
+                    <span>{satellite.ndmi_meaning_hi}</span>
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 font-normal leading-relaxed">
+                  // {satellite?.ndmi_meaning || satellite?.ndmi_status || 'Optimal moisture concentration inside leaf tissues.'}
+                </p>
               </div>
-              <div className="w-full bg-sky-200 h-2 rounded-full overflow-hidden my-3">
-                <div 
-                  className="bg-sky-600 h-full rounded-full transition-all duration-500" 
-                  style={{ width: `${Math.min(100, Math.max(5, ((satellite?.ndmi_mean ?? 0.4) + 0.2) * 100))}%` }}
-                ></div>
-              </div>
-              <p className="text-xs text-sky-900 leading-relaxed">
-                {satellite?.ndmi_status || 'Optimal moisture concentration inside leaf tissues.'}
-              </p>
             </div>
 
             {/* NDWI Card */}
-            <div className="p-5 rounded-2xl border border-blue-200 bg-blue-50/40">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-sm text-blue-900">NDWI (Water Index)</span>
-                <span className="text-xs font-mono font-bold bg-white px-2 py-0.5 rounded-full text-blue-800 border border-blue-200">
-                  (Green - NIR) / (Green + NIR)
-                </span>
+            <div className="p-5 rounded-2xl border border-blue-200 bg-blue-50/40 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                  <span className="font-bold text-sm text-blue-900">NDWI (Water Balance)</span>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                    (satellite?.ndwi_mean ?? -0.1) < -0.05
+                      ? 'text-emerald-800 bg-emerald-100 border border-emerald-300'
+                      : (satellite?.ndwi_mean ?? -0.1) <= 0.10
+                      ? 'text-blue-800 bg-blue-100 border border-blue-300'
+                      : 'text-red-800 bg-red-100 border border-red-300'
+                  }`}>
+                    {satellite?.water_stress || 'Water Balance'}
+                  </span>
+                </div>
+                <div className="text-3xl font-black text-blue-700 my-2">
+                  {satellite?.ndwi_mean != null ? satellite.ndwi_mean.toFixed(2) : '--'}
+                </div>
+                <div className="w-full bg-blue-200 h-2 rounded-full overflow-hidden my-3">
+                  <div 
+                    className="bg-blue-600 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min(100, Math.max(5, ((satellite?.ndwi_mean ?? -0.1) + 0.4) / 0.8 * 100))}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="text-3xl font-black text-blue-700 my-2">
-                {satellite?.ndwi_mean != null ? satellite.ndwi_mean.toFixed(2) : '--'}
+              <div className="space-y-1 mt-2 border-t border-blue-100/80 pt-2">
+                {satellite?.ndwi_meaning_hi && (
+                  <p className="text-xs text-blue-950 font-semibold flex items-start gap-1.5 leading-snug">
+                    <span className="shrink-0">⚖️</span>
+                    <span>{satellite.ndwi_meaning_hi}</span>
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 font-normal leading-relaxed">
+                  // {satellite?.ndwi_meaning || satellite?.water_stress || 'Balanced surface moisture. No standing water pooling.'}
+                </p>
               </div>
-              <div className="w-full bg-blue-200 h-2 rounded-full overflow-hidden my-3">
-                <div 
-                  className="bg-blue-600 h-full rounded-full transition-all duration-500" 
-                  style={{ width: `${Math.min(100, Math.max(5, ((satellite?.ndwi_mean ?? -0.1) + 0.5) * 100))}%` }}
-                ></div>
-              </div>
-              <p className="text-xs text-blue-900 leading-relaxed">
-                {satellite?.water_stress || 'Balanced surface moisture. No standing water pooling.'}
-              </p>
             </div>
           </div>
         </div>

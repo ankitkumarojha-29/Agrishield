@@ -190,10 +190,17 @@ export type SatelliteIndices = {
   farm_name?: string;
   ndvi_mean: number;
   ndvi_status: string;
+  ndvi_meaning?: string;
+  ndvi_meaning_hi?: string;
   ndmi_mean: number;
   ndmi_status: string;
+  ndmi_meaning?: string;
+  ndmi_meaning_hi?: string;
   ndwi_mean: number;
+  ndwi_status?: string;
   water_stress: string;
+  ndwi_meaning?: string;
+  ndwi_meaning_hi?: string;
   satellite: string;
   resolution: string;
   cloud_coverage_pct: number;

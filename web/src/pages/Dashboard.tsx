@@ -780,19 +780,29 @@ export default function Dashboard() {
                 <span className="text-xs text-slate-400 font-medium">Fetching Sentinel-2...</span>
               </div>
             ) : (
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900">
-                  {satelliteData?.ndvi_mean != null ? satelliteData.ndvi_mean.toFixed(2) : '--'}
-                </span>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                  (satelliteData?.ndvi_mean ?? 0) >= 0.65
-                    ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
-                    : (satelliteData?.ndvi_mean ?? 0) >= 0.40
-                    ? 'text-lime-700 bg-lime-50 border border-lime-200'
-                    : 'text-amber-700 bg-amber-50 border border-amber-200'
-                }`}>
-                  {satelliteData?.ndvi_status || 'Vegetation Vigor'}
-                </span>
+              <div>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-3xl font-black text-slate-900">
+                    {satelliteData?.ndvi_mean != null ? satelliteData.ndvi_mean.toFixed(2) : '--'}
+                  </span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    (satelliteData?.ndvi_mean ?? 0) >= 0.65
+                      ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                      : (satelliteData?.ndvi_mean ?? 0) >= 0.40
+                      ? 'text-lime-700 bg-lime-50 border border-lime-200'
+                      : (satelliteData?.ndvi_mean ?? 0) >= 0.20
+                      ? 'text-amber-700 bg-amber-50 border border-amber-200'
+                      : 'text-orange-700 bg-orange-50 border border-orange-200'
+                  }`}>
+                    {satelliteData?.ndvi_status || 'Vegetation Vigor'}
+                  </span>
+                </div>
+                {satelliteData?.ndvi_meaning_hi && (
+                  <p className="text-[11px] text-slate-600 mt-2 font-medium flex items-start gap-1 leading-tight">
+                    <span className="text-emerald-600 shrink-0">🌱</span>
+                    <span>{satelliteData.ndvi_meaning_hi} <span className="text-slate-400 font-normal">({satelliteData.ndvi_meaning})</span></span>
+                  </p>
+                )}
               </div>
             )}
             <p className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
@@ -819,19 +829,29 @@ export default function Dashboard() {
                 <span className="text-xs text-slate-400 font-medium">Analyzing moisture...</span>
               </div>
             ) : (
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900">
-                  {satelliteData?.ndmi_mean != null ? satelliteData.ndmi_mean.toFixed(2) : '--'}
-                </span>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                  (satelliteData?.ndmi_mean ?? 0) >= 0.30
-                    ? 'text-sky-700 bg-sky-50 border border-sky-200'
-                    : (satelliteData?.ndmi_mean ?? 0) >= 0.15
-                    ? 'text-blue-700 bg-blue-50 border border-blue-200'
-                    : 'text-amber-700 bg-amber-50 border border-amber-200'
-                }`}>
-                  {satelliteData?.ndmi_status || 'NDMI Status'}
-                </span>
+              <div>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-3xl font-black text-slate-900">
+                    {satelliteData?.ndmi_mean != null ? satelliteData.ndmi_mean.toFixed(2) : '--'}
+                  </span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    (satelliteData?.ndmi_mean ?? 0) >= 0.20
+                      ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                      : (satelliteData?.ndmi_mean ?? 0) >= 0.00
+                      ? 'text-sky-700 bg-sky-50 border border-sky-200'
+                      : (satelliteData?.ndmi_mean ?? 0) >= -0.15
+                      ? 'text-amber-700 bg-amber-50 border border-amber-200'
+                      : 'text-red-700 bg-red-50 border border-red-200'
+                  }`}>
+                    {satelliteData?.ndmi_status || 'NDMI Status'}
+                  </span>
+                </div>
+                {satelliteData?.ndmi_meaning_hi && (
+                  <p className="text-[11px] text-slate-600 mt-2 font-medium flex items-start gap-1 leading-tight">
+                    <span className="text-sky-600 shrink-0">💧</span>
+                    <span>{satelliteData.ndmi_meaning_hi} <span className="text-slate-400 font-normal">({satelliteData.ndmi_meaning})</span></span>
+                  </p>
+                )}
               </div>
             )}
             <p className="text-[11px] text-slate-500 mt-1 truncate">
