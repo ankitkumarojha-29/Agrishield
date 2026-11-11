@@ -53,7 +53,11 @@ export default function Dashboard() {
   const [satelliteData, setSatelliteData] = useState<SatelliteIndices | null>(() => {
     try {
       const saved = sessionStorage.getItem('agrishield_cached_satellite');
-      return saved ? JSON.parse(saved) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.ndvi_mean !== 0.45) return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -88,11 +92,20 @@ export default function Dashboard() {
           if (cachedLocName) setLocationName(cachedLocName);
           const cachedSat = sessionStorage.getItem('agrishield_cached_satellite');
           if (cachedSat) {
-            setSatelliteData(JSON.parse(cachedSat));
-          } else {
-            const primaryCrop = userFarms[0]?.crop || 'Wheat';
-            fetchSatelliteData(coords.lat, coords.lon, primaryCrop);
+            try {
+              const parsed = JSON.parse(cachedSat);
+              // Invalidate stale 0.45 cached from previous backend clamp
+              if (parsed && parsed.ndvi_mean !== 0.45) {
+                setSatelliteData(parsed);
+              } else {
+                sessionStorage.removeItem('agrishield_cached_satellite');
+              }
+            } catch {
+              sessionStorage.removeItem('agrishield_cached_satellite');
+            }
           }
+          const primaryCrop = userFarms[0]?.crop || 'Wheat';
+          fetchSatelliteData(coords.lat, coords.lon, primaryCrop);
           return;
         }
       } catch (e) {
