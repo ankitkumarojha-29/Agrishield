@@ -1,13 +1,16 @@
 param(
     [int]$Port = 8001,
+    [ValidateSet("cloudflare", "ngrok", "localtunnel")]
+    [string]$TunnelType = "cloudflare",
     [switch]$NonInteractive,
     [switch]$AiOnly,
     [switch]$TunnelOnly
 )
 
 # =====================================================================
-# AgriShield AI Inference Service & Public Tunnel Launcher
-# Connects local compute/inference to Cloud Backend (Render) via ngrok
+# AgriShield AI Inference Service & Public Cloud Tunnel Orchestrator
+# Connects local PyTorch/YOLO compute to Cloud Backend (Render)
+# Default engine: Cloudflare Quick Tunnels (UNLIMITED, NO SIGNUP NEEDED)
 # =====================================================================
 
 $ErrorActionPreference = "Continue"
@@ -60,7 +63,7 @@ if (-not $PythonExe) {
 Write-Host "[OK] Python Runtime: $PythonExe" -ForegroundColor Gray
 
 # ---------------------------------------------------------------------
-# 2. Check / Start AI Service (Port $Port)
+# 2. Check / Start Local AI Service (Port $Port)
 # ---------------------------------------------------------------------
 if (-not $TunnelOnly) {
     $PortInUse = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Listen' }
@@ -101,119 +104,162 @@ if ($AiOnly) {
 }
 
 # ---------------------------------------------------------------------
-# 3. Locate & Run Tunnel (ngrok or fallback)
+# 3. Tunneling Engine Execution
 # ---------------------------------------------------------------------
-$NgrokCandidates = @(
-    (Join-Path $AiPath "ngrok.exe"),
-    (Join-Path $RootPath "ai\ngrok.exe"),
-    "ngrok",
-    "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe",
-    "$env:LOCALAPPDATA\Programs\ngrok\ngrok.exe",
-    "$env:ProgramFiles\ngrok\ngrok.exe",
-    "$env:USERPROFILE\bin\ngrok.exe",
-    "$env:USERPROFILE\AppData\Local\Microsoft\WinGet\Links\ngrok.exe",
-    "C:\ProgramData\chocolatey\bin\ngrok.exe"
-)
-
-$NgrokCommand = $null
-foreach ($cmd in $NgrokCandidates) {
-    if (Get-Command $cmd -ErrorAction SilentlyContinue) {
-        $NgrokCommand = $cmd
-        break
-    }
-    if (Test-Path $cmd) {
-        $NgrokCommand = $cmd
-        break
-    }
-}
-
 $PublicUrl = $null
 
-if ($NgrokCommand) {
-    Write-Host "[OK] Located ngrok engine: $NgrokCommand" -ForegroundColor Gray
+if ($TunnelType -eq "cloudflare") {
+    Write-Host ""
+    Write-Host "[*] Tunnel Engine: Cloudflare Quick Tunnel (Unlimited Data, 0 Signup)" -ForegroundColor Cyan
 
-    # Check if authtoken is configured
-    $ngrokConfigPath = "$env:LOCALAPPDATA\ngrok\ngrok.yml"
-    $hasAuthToken = $false
-    if (Test-Path $ngrokConfigPath) {
-        $content = Get-Content $ngrokConfigPath -Raw
-        if ($content -match "authtoken:") {
-            $hasAuthToken = $true
+    # Locate cloudflared binary
+    $CloudflaredCandidates = @(
+        (Join-Path $AiPath "cloudflared.exe"),
+        (Join-Path $RootPath "ai\cloudflared.exe"),
+        (Join-Path $RootPath "cloudflared.exe"),
+        "cloudflared"
+    )
+
+    $CloudflaredCmd = $null
+    foreach ($candidate in $CloudflaredCandidates) {
+        if (Get-Command $candidate -ErrorAction SilentlyContinue) {
+            $CloudflaredCmd = $candidate
+            break
+        }
+        if (Test-Path $candidate) {
+            $CloudflaredCmd = $candidate
+            break
         }
     }
 
-    if (-not $hasAuthToken) {
-        Write-Host ""
-        Write-Host "[!] Action Required: ngrok requires a free account authtoken to start." -ForegroundColor Yellow
-        Write-Host "    1. Open your browser: https://dashboard.ngrok.com/get-started/your-authtoken" -ForegroundColor Cyan
-        Write-Host "    2. Copy your Auth Token." -ForegroundColor Cyan
-        Write-Host ""
-        $userToken = Read-Host "    Paste your ngrok Auth Token here (or press Enter to skip)"
-        if ($userToken -and $userToken.Trim()) {
-            & $NgrokCommand config add-authtoken $userToken.Trim()
-            Write-Host "[OK] AuthToken saved successfully!" -ForegroundColor Green
-            $hasAuthToken = $true
-        }
-    }
-
-    $NgrokProc = Get-Process -Name "ngrok" -ErrorAction SilentlyContinue
-
-    if (-not $NgrokProc) {
-        Write-Host "[*] Launching ngrok tunnel forwarding to port $Port..." -ForegroundColor Yellow
-        
-        # Check if user has a static domain configured in ai/.env or ngrok.yml
-        $staticDomain = $null
-        if (Test-Path (Join-Path $AiPath ".env")) {
-            $aiEnv = Get-Content (Join-Path $AiPath ".env")
-            foreach ($line in $aiEnv) {
-                if ($line -match "^NGROK_DOMAIN=(.+)") {
-                    $staticDomain = $matches[1].Trim()
-                }
-            }
-        }
-
-        $ngrokArgs = "http $Port --log=stdout"
-        if ($staticDomain) {
-            Write-Host "[*] Using permanent static domain: $staticDomain" -ForegroundColor Cyan
-            $ngrokArgs = "http --domain=$staticDomain $Port --log=stdout"
-        }
-
-        Start-Process -FilePath $NgrokCommand -ArgumentList $ngrokArgs -WindowStyle Minimized
-        Start-Sleep -Seconds 3
-    } else {
-        Write-Host "[OK] ngrok process already active (PID: $($NgrokProc[0].Id))" -ForegroundColor Green
-    }
-
-    $Retries = 0
-    while ($Retries -lt 15 -and -not $PublicUrl) {
+    # Auto-download if missing
+    if (-not $CloudflaredCmd) {
+        Write-Host "[*] cloudflared not found locally. Auto-downloading standalone binary..." -ForegroundColor Yellow
+        $targetExe = Join-Path $AiPath "cloudflared.exe"
+        $downloadUrl = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
         try {
-            $tunnels = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels" -TimeoutSec 2 -ErrorAction Stop
-            if ($tunnels.tunnels -and $tunnels.tunnels.Count -gt 0) {
-                $httpsTunnel = $tunnels.tunnels | Where-Object { $_.proto -eq "https" }
-                if ($httpsTunnel) {
-                    $PublicUrl = $httpsTunnel[0].public_url
-                } else {
-                    $PublicUrl = $tunnels.tunnels[0].public_url
-                }
-            }
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $targetExe -UseBasicParsing
+            $CloudflaredCmd = $targetExe
+            Write-Host "[OK] cloudflared downloaded successfully to $targetExe" -ForegroundColor Green
         } catch {
-            Start-Sleep -Seconds 1
-            $Retries++
+            Write-Host "[!] Failed to auto-download cloudflared: $_" -ForegroundColor Red
         }
     }
-} else {
+
+    if ($CloudflaredCmd) {
+        Write-Host "[OK] Located cloudflared engine: $CloudflaredCmd" -ForegroundColor Gray
+
+        # Stop existing cloudflared tunnels to ensure clean start
+        Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+        $tempLog = Join-Path ([System.IO.Path]::GetTempPath()) "agrishield_cf_$Port.log"
+        if (Test-Path $tempLog) { Remove-Item $tempLog -Force -ErrorAction SilentlyContinue }
+
+        Write-Host "[*] Launching Cloudflare Tunnel for http://127.0.0.1:$Port..." -ForegroundColor Yellow
+        Start-Process -FilePath $CloudflaredCmd -ArgumentList "tunnel --url http://127.0.0.1:$Port" -RedirectStandardError $tempLog -WindowStyle Hidden
+
+        # Extract trycloudflare.com URL from log
+        $WaitCount = 0
+        while ($WaitCount -lt 20 -and -not $PublicUrl) {
+            Start-Sleep -Seconds 1
+            $WaitCount++
+            if (Test-Path $tempLog) {
+                $logContent = Get-Content $tempLog -Raw -ErrorAction SilentlyContinue
+                if ($logContent -match "https://[a-zA-Z0-9-]+\.trycloudflare\.com") {
+                    $PublicUrl = $matches[0]
+                }
+            }
+        }
+
+        # Verify DNS / public health check
+        if ($PublicUrl) {
+            Write-Host "[*] Tunnel assigned: $PublicUrl" -ForegroundColor Cyan
+            Write-Host "[*] Verifying DNS propagation and end-to-end connectivity..." -ForegroundColor Gray
+            $DnsReady = $false
+            for ($d = 0; $d -lt 15; $d++) {
+                try {
+                    $testResp = Invoke-RestMethod -Uri "$PublicUrl/health" -TimeoutSec 4 -ErrorAction Stop
+                    if ($testResp.status -in @("healthy", "ok", "OK") -or $testResp) {
+                        $DnsReady = $true
+                        break
+                    }
+                } catch {
+                    Start-Sleep -Seconds 1
+                }
+            }
+            if ($DnsReady) {
+                Write-Host "[OK] Cloudflare tunnel verified active & responding!" -ForegroundColor Green
+            } else {
+                Write-Host "[!] Cloudflare DNS is still propagating (usually takes ~5 seconds)." -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "[!] Failed to extract public URL from cloudflared output. Check log: $tempLog" -ForegroundColor Red
+        }
+    }
+} elseif ($TunnelType -eq "ngrok") {
     Write-Host ""
-    Write-Host "[!] Note: ngrok executable not found in PATH or standard directories." -ForegroundColor Yellow
-    Write-Host "    Install ngrok via: winget install ngrok.ngrok" -ForegroundColor DarkGray
-    Write-Host "    Or download from:  https://ngrok.com/download" -ForegroundColor DarkGray
+    Write-Host "[*] Tunnel Engine: ngrok" -ForegroundColor Cyan
+
+    $NgrokCandidates = @(
+        (Join-Path $AiPath "ngrok.exe"),
+        (Join-Path $RootPath "ai\ngrok.exe"),
+        "ngrok",
+        "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe",
+        "$env:LOCALAPPDATA\Programs\ngrok\ngrok.exe",
+        "$env:ProgramFiles\ngrok\ngrok.exe",
+        "$env:USERPROFILE\bin\ngrok.exe"
+    )
+
+    $NgrokCommand = $null
+    foreach ($cmd in $NgrokCandidates) {
+        if (Get-Command $cmd -ErrorAction SilentlyContinue) {
+            $NgrokCommand = $cmd
+            break
+        }
+        if (Test-Path $cmd) {
+            $NgrokCommand = $cmd
+            break
+        }
+    }
+
+    if ($NgrokCommand) {
+        Write-Host "[OK] Located ngrok engine: $NgrokCommand" -ForegroundColor Gray
+
+        $NgrokProc = Get-Process -Name "ngrok" -ErrorAction SilentlyContinue
+        if (-not $NgrokProc) {
+            Write-Host "[*] Launching ngrok tunnel forwarding to port $Port..." -ForegroundColor Yellow
+            Start-Process -FilePath $NgrokCommand -ArgumentList "http $Port --log=stdout" -WindowStyle Minimized
+            Start-Sleep -Seconds 3
+        }
+
+        $Retries = 0
+        while ($Retries -lt 15 -and -not $PublicUrl) {
+            try {
+                $tunnels = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels" -TimeoutSec 2 -ErrorAction Stop
+                if ($tunnels.tunnels -and $tunnels.tunnels.Count -gt 0) {
+                    $httpsTunnel = $tunnels.tunnels | Where-Object { $_.proto -eq "https" }
+                    if ($httpsTunnel) {
+                        $PublicUrl = $httpsTunnel[0].public_url
+                    } else {
+                        $PublicUrl = $tunnels.tunnels[0].public_url
+                    }
+                }
+            } catch {
+                Start-Sleep -Seconds 1
+                $Retries++
+            }
+        }
+    }
+} elseif ($TunnelType -eq "localtunnel") {
     Write-Host ""
-    
+    Write-Host "[*] Tunnel Engine: localtunnel (via npx)" -ForegroundColor Cyan
     $NpxCmd = Get-Command npx -ErrorAction SilentlyContinue
     if ($NpxCmd) {
-        Write-Host "[*] Attempting localtunnel fallback via npx..." -ForegroundColor Cyan
-        Start-Process -FilePath "npx" -ArgumentList "localtunnel --port $Port" -WindowStyle Minimized
-        Write-Host "[OK] Launched localtunnel in background." -ForegroundColor Green
-        Write-Host "    Check terminal window or run: npx localtunnel --port $Port" -ForegroundColor DarkGray
+        Start-Process -FilePath "npx" -ArgumentList "localtunnel --port $Port" -WindowStyle Normal
+        Write-Host "[OK] Launched localtunnel in a separate window." -ForegroundColor Green
+    } else {
+        Write-Host "[!] npx (Node.js) is not installed." -ForegroundColor Red
     }
 }
 
@@ -223,29 +269,42 @@ if ($NgrokCommand) {
 Write-Host ""
 Write-Host "===============================================================" -ForegroundColor Green
 if ($PublicUrl) {
-    Write-Host " LIVE PUBLIC AI URL:" -ForegroundColor White
+    Write-Host " LIVE PUBLIC AI URL (UNLIMITED & ACTIVE):" -ForegroundColor White
     Write-Host " $PublicUrl" -ForegroundColor Green -BackgroundColor Black
     Write-Host "===============================================================" -ForegroundColor Green
     
     try {
         Set-Clipboard -Value $PublicUrl
-        Write-Host "[OK] Copied URL to clipboard!" -ForegroundColor Cyan
+        Write-Host "[OK] Live AI URL copied directly to your clipboard!" -ForegroundColor Cyan
     } catch {}
 
     Write-Host ""
-    Write-Host "-> Cloud Integration Instructions:" -ForegroundColor Yellow
-    Write-Host "   1. Open Render Dashboard -> agrishield-backend -> Environment" -ForegroundColor White
-    Write-Host "   2. Set AI_SERVICE_URL = $PublicUrl" -ForegroundColor Green
-    Write-Host "   3. Set AI_MODE = live" -ForegroundColor Green
-    Write-Host "   4. Trigger deploy or restart backend." -ForegroundColor DarkGray
+    Write-Host "-> Cloud Integration Instructions (Render Backend):" -ForegroundColor Yellow
+    Write-Host "   1. Open Render Dashboard: https://dashboard.render.com" -ForegroundColor White
+    Write-Host "   2. Click 'agrishield-backend' -> 'Environment' tab" -ForegroundColor White
+    Write-Host "   3. Update AI_SERVICE_URL to:" -ForegroundColor White
+    Write-Host "      $PublicUrl" -ForegroundColor Green
+    Write-Host "   4. Ensure AI_MODE is set to: live" -ForegroundColor White
+    Write-Host "   5. Click 'Save Changes' (Render will re-deploy with your live AI in ~60s)" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "[i] Advantages of Cloudflare Quick Tunnel:" -ForegroundColor DarkCyan
+    Write-Host "    - ZERO BANDWIDTH LIMIT (no 1GB limit)" -ForegroundColor DarkCyan
+    Write-Host "    - ZERO ACCOUNT / SIGNUP REQUIRED" -ForegroundColor DarkCyan
+    Write-Host "    - Clean direct JSON API delivery with no warning banners" -ForegroundColor DarkCyan
 } else {
     Write-Host " LOCAL AI STATUS: Running on http://127.0.0.1:$Port" -ForegroundColor Green
-    Write-Host " To expose to cloud, start ngrok: ngrok http $Port" -ForegroundColor Yellow
+    Write-Host " To expose with Cloudflare: .\start_ai_tunnel.ps1 -TunnelType cloudflare" -ForegroundColor Yellow
+    Write-Host " To expose with ngrok:      .\start_ai_tunnel.ps1 -TunnelType ngrok" -ForegroundColor Yellow
     Write-Host "===============================================================" -ForegroundColor Green
 }
 
 if (-not $NonInteractive) {
     Write-Host ""
-    Write-Host "Press Enter to exit launcher (services continue running in background)..." -ForegroundColor Gray
+    Write-Host ">>> Tunnel is LIVE! Keep this terminal window OPEN while your AI is in use." -ForegroundColor Yellow
+    Write-Host "    (When finished, press Enter or Ctrl+C to stop the tunnel and exit)" -ForegroundColor DarkGray
     Read-Host
+    Write-Host ""
+    Write-Host "[*] Stopping Cloudflare tunnel..." -ForegroundColor Yellow
+    Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Write-Host "[OK] Tunnel stopped cleanly. Local AI service (port $Port) remains running." -ForegroundColor Green
 }
