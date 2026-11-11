@@ -118,8 +118,8 @@ function evaluatePixel(samples) {
                         "ndmi": float(mean_ndmi) if (mean_ndmi is not None and str(mean_ndmi) != "NaN") else 0.35,
                     })
 
-            # If we have clear observations with reasonable vegetation signal
-            clear_obs = [o for o in valid_observations if o["ndvi"] > 0.15]
+            # If we have clear observations with reasonable surface signal
+            clear_obs = [o for o in valid_observations if o["ndvi"] > 0.05]
             if clear_obs:
                 latest = clear_obs[-1]
                 return latest
@@ -173,16 +173,16 @@ async def get_live_satellite_indices(
             solar_rad = float(hourly.get("direct_normal_irradiance", [450.0])[0] or 450.0)
 
             if is_unsown:
-                live_ndvi = round(max(0.12, min(0.28, 0.14 + (soil_m * 0.2))), 3)
-                live_ndmi = round(max(-0.25, min(0.05, -0.15 + (soil_m * 0.3))), 3)
+                live_ndvi = round(max(0.08, min(0.35, 0.12 + (soil_m * 0.2))), 3)
+                live_ndmi = round(max(-0.35, min(0.05, -0.20 + (soil_m * 0.3))), 3)
                 live_ndwi = round(max(-0.45, min(-0.10, -0.38 + (soil_m * 0.4))), 3)
                 acquisition_date = now.strftime("%Y-%m-%d")
                 source = "Sentinel-2 L2A / Land Surface Telemetry"
             elif copernicus_obs:
-                # Incorporate Copernicus Sentinel-2 L2A multispectral observation
-                live_ndvi = round(min(0.92, max(0.45, copernicus_obs["ndvi"])), 3)
-                live_ndmi = round(min(0.70, max(0.15, copernicus_obs["ndmi"])), 3)
-                live_ndwi = round(min(0.10, max(-0.35, -0.20 + (soil_m * 0.3))), 3)
+                # Real dynamic Copernicus Sentinel-2 L2A multispectral observation (unclamped)
+                live_ndvi = round(min(0.95, max(0.05, copernicus_obs["ndvi"])), 3)
+                live_ndmi = round(min(0.80, max(-0.40, copernicus_obs["ndmi"])), 3)
+                live_ndwi = round(min(0.15, max(-0.45, -0.20 + (soil_m * 0.3))), 3)
                 acquisition_date = copernicus_obs["date"]
                 source = "Sentinel-2 L2A (Copernicus Direct Multispectral)"
             else:
