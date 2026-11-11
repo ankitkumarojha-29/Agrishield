@@ -27,12 +27,12 @@ $RootPath = $PSScriptRoot
 $AiPath = Join-Path $RootPath "ai"
 
 # Resolve Secret Key for Auto-Sync
-$SecretKey = "supersecretkey"
+$SecretKey = "agrishield-tunnel-auth-key-2026"
 $backendEnv = Join-Path $RootPath "backend\.env"
 if (Test-Path $backendEnv) {
     foreach ($line in (Get-Content $backendEnv)) {
-        if ($line -match "^SECRET_KEY=(.+)") {
-            $SecretKey = $matches[1].Trim()
+        if ($line -match "^TUNNEL_SECRET_KEY=(.+)") {
+            $SecretKey = $matches[1].Trim().Trim('"').Trim("'")
         }
     }
 }
