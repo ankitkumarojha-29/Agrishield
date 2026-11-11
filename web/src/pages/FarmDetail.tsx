@@ -204,8 +204,8 @@ export default function FarmDetail() {
     ? polygonPositions[0] 
     : [23.2599, 77.4126];
 
-  const areaHa = (farm.area_m2 / 10000).toFixed(2);
-  const areaAcres = ((farm.area_m2 / 10000) * 2.47105).toFixed(2);
+  const areaHa = (((farm.area_m2 || 0) / 10000)).toFixed(2);
+  const areaAcres = ((((farm.area_m2 || 0) / 10000)) * 2.47105).toFixed(2);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

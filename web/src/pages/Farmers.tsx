@@ -445,12 +445,12 @@ export default function Farmers() {
                               </span>
                             ))
                           ) : (
-                            <span className="text-slate-400 italic">Wheat / Soybean</span>
+                            <span className="text-slate-400 italic">कोई फसल नहीं (None)</span>
                           )}
                         </div>
                       </td>
                       <td className="px-5 py-4 font-semibold text-emerald-700 text-sm">
-                        {farmer.total_area_ha ? `${farmer.total_area_ha} ha` : '2.4 ha'}
+                        {farmer.farm_count && farmer.farm_count > 0 ? `${farmer.total_area_ha ?? 0} ha` : '0 ha (कोई खेत नहीं)'}
                       </td>
                       <td className="px-5 py-4">
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">

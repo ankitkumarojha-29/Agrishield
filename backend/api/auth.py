@@ -50,6 +50,14 @@ def _format_iso_utc(dt: Optional[datetime]) -> Optional[str]:
     iso = dt.isoformat()
     return iso if (iso.endswith("Z") or "+" in iso) else (iso + "Z")
 
+def _to_naive_utc(dt: Optional[datetime]) -> datetime:
+    """Ensures datetime is naive UTC to guarantee safe subtraction and comparison against naive utcnow."""
+    if not dt:
+        return datetime.utcnow()
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
 # ─────────────────────────────────────────────────────────────────────────────
 # SECTION: SCHEMA DEFINITIONS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -653,7 +661,7 @@ async def admin_login(req: AdminLoginRequest, db: AsyncSession = Depends(get_db)
     # Check if admin is approved
     if user.role == UserRole.ADMIN and not user.is_approved:
         now = datetime.utcnow()
-        created_at = user.created_at or now
+        created_at = _to_naive_utc(user.created_at)
         cutoff = now - timedelta(days=7)
         
         # If unapproved for over 7 days (1 week), cancel and clean from database
@@ -718,7 +726,7 @@ async def admin_register(req: AdminRegisterRequest, db: AsyncSession = Depends(g
     
     if existing:
         if existing.role == UserRole.ADMIN and not existing.is_approved:
-            created_at = existing.created_at or now
+            created_at = _to_naive_utc(existing.created_at)
             # If request is older than 7 days, previous request is expired: renew it!
             if created_at < now - timedelta(days=7):
                 existing.hashed_password = get_password_hash(req.password)
@@ -814,7 +822,7 @@ async def get_pending_admins(current_user: User = Depends(get_admin_user), db: A
     
     response_data = []
     for u in pending:
-        created = u.created_at or now
+        created = _to_naive_utc(u.created_at)
         expires_at = created + timedelta(days=7)
         secs_remaining = max(0, int((expires_at - now).total_seconds()))
         days_remaining = secs_remaining // 86400
@@ -872,7 +880,8 @@ async def approve_admin(admin_id: str, current_user: User = Depends(get_admin_us
         
     now = datetime.utcnow()
     # Check if request has expired (> 7 days)
-    if target.created_at and target.created_at < now - timedelta(days=7):
+    target_created = _to_naive_utc(target.created_at) if target.created_at else None
+    if target_created and target_created < now - timedelta(days=7):
         await db.delete(target)
         await db.commit()
         _error("EXPIRED", "This admin approval request has expired (> 7 days) and was cancelled and removed.", 400)
