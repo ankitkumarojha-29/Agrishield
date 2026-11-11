@@ -231,9 +231,10 @@ async def api_generic_exception_handler(request: Request, exc: Exception):
 
 @api_router.get("/meta")
 def get_meta():
+    from services.ai_client import get_effective_ai_service_url
     return {
         "version": "1.0.0",
-        "ai_service_url": settings.AI_SERVICE_URL,
+        "ai_service_url": get_effective_ai_service_url(),
         "ai_mode": settings.AI_MODE,
         "mock_mode": settings.MOCK_MODE,
         "features": [

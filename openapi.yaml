@@ -647,3 +647,17 @@ paths:
                 target_crop: { type: string, nullable: true }
       responses: { '200': { description: OK } }
 
+  /admin/register-tunnel:
+    post:
+      summary: Dynamic registration & heartbeat endpoint for local AI microservice tunnels
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tunnel_url]
+              properties:
+                tunnel_url: { type: string }
+                secret_key: { type: string }
+      responses: { '200': { description: OK } }
+

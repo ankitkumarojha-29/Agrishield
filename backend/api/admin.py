@@ -389,15 +389,56 @@ async def broadcast_alert(
         "timestamp": datetime.now(timezone.utc).isoformat()
     })
 
+class RegisterTunnelRequest(BaseModel):
+    tunnel_url: str
+    secret_key: Optional[str] = None
+
+@router.post("/register-tunnel")
+async def register_live_ai_tunnel(
+    req: RegisterTunnelRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Dynamic registration & heartbeat endpoint for local AI microservice tunnels.
+    Permits start_ai_tunnel.ps1 to automatically announce its public Cloudflare URL
+    directly to Render without requiring manual dashboard environment edits.
+    """
+    from services.ai_client import set_dynamic_tunnel_url, get_effective_ai_service_url
+    from services.ai_reconciliation_service import reconcile_all_pending_ai_assessments
+    from core.config import settings
+    import asyncio
+
+    # Authenticate: secret_key must match server SECRET_KEY
+    if not req.secret_key or req.secret_key != settings.SECRET_KEY:
+        _error("UNAUTHORIZED", "Invalid secret_key for tunnel registration", status_code=403)
+
+    clean_url = (req.tunnel_url or "").strip().rstrip("/")
+    if not (clean_url.startswith("http://") or clean_url.startswith("https://")):
+        _error("VALIDATION_ERROR", "Tunnel URL must start with http:// or https://")
+
+    set_dynamic_tunnel_url(clean_url)
+
+    # Automatically trigger reconciliation for any records queued during offline fallback
+    asyncio.create_task(reconcile_all_pending_ai_assessments(db))
+
+    return _ok({
+        "status": "connected",
+        "active_ai_service_url": clean_url,
+        "ttl_seconds": 120,
+        "reconciliation_triggered": True,
+        "message": "AI tunnel successfully registered with Cloud Backend."
+    })
+
 @router.get("/ai-tunnel-status")
 async def get_ai_tunnel_status(admin: User = Depends(get_admin_user)):
     """Returns real-time connectivity status of the AI microservice / tunnel."""
     from services.ai_reconciliation_service import is_ai_service_online
-    from core.config import settings
+    from services.ai_client import get_effective_ai_service_url
     online = await is_ai_service_online()
+    active_url = get_effective_ai_service_url()
     return _ok({
         "is_online": online,
-        "service_url": settings.AI_SERVICE_URL,
+        "service_url": active_url,
         "mode": "live_tunnel" if online else "offline_fallback",
         "model": "EfficientNet-B0 (PyTorch)" if online else "mock-v1 (fallback)",
     })

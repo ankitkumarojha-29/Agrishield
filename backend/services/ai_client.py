@@ -85,8 +85,27 @@ class MockAIClient(AIClient):
 
 
 import logging
+import time
+from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# Dynamic Tunnel State (permits live microservice announcement without Render restarts)
+_DYNAMIC_TUNNEL_URL: Optional[str] = None
+_LAST_HEARTBEAT: float = 0.0
+
+def set_dynamic_tunnel_url(url: str):
+    global _DYNAMIC_TUNNEL_URL, _LAST_HEARTBEAT
+    _DYNAMIC_TUNNEL_URL = url.rstrip("/")
+    _LAST_HEARTBEAT = time.time()
+    logger.info("Dynamic AI tunnel registered: %s", _DYNAMIC_TUNNEL_URL)
+
+def get_effective_ai_service_url() -> str:
+    global _DYNAMIC_TUNNEL_URL, _LAST_HEARTBEAT
+    # If dynamic tunnel was updated in the last 120 seconds, prioritize it
+    if _DYNAMIC_TUNNEL_URL and (time.time() - _LAST_HEARTBEAT < 120):
+        return _DYNAMIC_TUNNEL_URL
+    return (settings.AI_SERVICE_URL or "http://localhost:8001").rstrip("/")
 
 # Fast-fail connection timeout (3.5s connect, 25s read) so when tunnel/laptop is offline,
 # fallback triggers seamlessly in seconds without freezing the farmer's browser
@@ -94,13 +113,18 @@ AI_HTTP_TIMEOUT = httpx.Timeout(25.0, connect=3.5)
 
 
 class HttpAIClient(AIClient):
-    def __init__(self, base_url: str):
-        self.base_url = base_url.rstrip("/")
+    def __init__(self, base_url: Optional[str] = None):
+        self._configured_url = (base_url or "").rstrip("/") if base_url else None
         self._fallback = MockAIClient()
         self._headers = {
             "ngrok-skip-browser-warning": "true",
             "User-Agent": "AgriShield-Backend/1.0"
         }
+
+    @property
+    def base_url(self) -> str:
+        effective = get_effective_ai_service_url()
+        return effective if effective else (self._configured_url or "http://localhost:8001")
 
     async def get_crop_health(self, image_bytes: bytes, crop: str, growth_stage: str):
         try:
@@ -290,4 +314,4 @@ class HttpAIClient(AIClient):
 def get_ai_client() -> AIClient:
     if settings.AI_MODE.lower() == "mock" or settings.MOCK_MODE:
         return MockAIClient()
-    return HttpAIClient(settings.AI_SERVICE_URL)
+    return HttpAIClient(get_effective_ai_service_url())

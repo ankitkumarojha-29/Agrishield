@@ -31,8 +31,9 @@ logger = logging.getLogger("agrishield.ai_reconciliation")
 
 
 async def is_ai_service_online() -> bool:
-    """Lightweight 2.5-second health check against the configured AI Service URL."""
-    ai_url = (settings.AI_SERVICE_URL or "").rstrip("/")
+    """Lightweight 2.5-second health check against the active AI Service URL (dynamic tunnel or configured)."""
+    from services.ai_client import get_effective_ai_service_url
+    ai_url = get_effective_ai_service_url()
     if not ai_url:
         return False
     try:

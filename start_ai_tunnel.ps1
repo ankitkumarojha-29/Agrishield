@@ -2,6 +2,7 @@ param(
     [int]$Port = 8001,
     [ValidateSet("cloudflare", "ngrok", "localtunnel")]
     [string]$TunnelType = "cloudflare",
+    [string]$BackendUrl = "https://agrishield-backend-8vzw.onrender.com",
     [switch]$NonInteractive,
     [switch]$AiOnly,
     [switch]$TunnelOnly
@@ -11,6 +12,7 @@ param(
 # AgriShield AI Inference Service & Public Cloud Tunnel Orchestrator
 # Connects local PyTorch/YOLO compute to Cloud Backend (Render)
 # Default engine: Cloudflare Quick Tunnels (UNLIMITED, NO SIGNUP NEEDED)
+# Includes Auto-Sync: Automatically informs Render of new tunnel URL!
 # =====================================================================
 
 $ErrorActionPreference = "Continue"
@@ -23,6 +25,17 @@ Write-Host ""
 
 $RootPath = $PSScriptRoot
 $AiPath = Join-Path $RootPath "ai"
+
+# Resolve Secret Key for Auto-Sync
+$SecretKey = "supersecretkey"
+$backendEnv = Join-Path $RootPath "backend\.env"
+if (Test-Path $backendEnv) {
+    foreach ($line in (Get-Content $backendEnv)) {
+        if ($line -match "^SECRET_KEY=(.+)") {
+            $SecretKey = $matches[1].Trim()
+        }
+    }
+}
 
 # ---------------------------------------------------------------------
 # 1. Resolve Python Executable
@@ -112,7 +125,6 @@ if ($TunnelType -eq "cloudflare") {
     Write-Host ""
     Write-Host "[*] Tunnel Engine: Cloudflare Quick Tunnel (Unlimited Data, 0 Signup)" -ForegroundColor Cyan
 
-    # Locate cloudflared binary
     $CloudflaredCandidates = @(
         (Join-Path $AiPath "cloudflared.exe"),
         (Join-Path $RootPath "ai\cloudflared.exe"),
@@ -132,7 +144,6 @@ if ($TunnelType -eq "cloudflare") {
         }
     }
 
-    # Auto-download if missing
     if (-not $CloudflaredCmd) {
         Write-Host "[*] cloudflared not found locally. Auto-downloading standalone binary..." -ForegroundColor Yellow
         $targetExe = Join-Path $AiPath "cloudflared.exe"
@@ -191,7 +202,7 @@ if ($TunnelType -eq "cloudflare") {
             if ($DnsReady) {
                 Write-Host "[OK] Cloudflare tunnel verified active & responding!" -ForegroundColor Green
             } else {
-                Write-Host "[!] Cloudflare DNS is still propagating (usually takes ~5 seconds)." -ForegroundColor Yellow
+                Write-Host "[!] Cloudflare DNS is still propagating (ready in ~5 seconds)." -ForegroundColor Yellow
             }
         } else {
             Write-Host "[!] Failed to extract public URL from cloudflared output. Check log: $tempLog" -ForegroundColor Red
@@ -264,7 +275,35 @@ if ($TunnelType -eq "cloudflare") {
 }
 
 # ---------------------------------------------------------------------
-# 4. Display Results & Copy to Clipboard
+# 4. Auto-Sync with Render Cloud Backend
+# ---------------------------------------------------------------------
+$AutoSynced = $false
+if ($PublicUrl) {
+    try {
+        Set-Clipboard -Value $PublicUrl
+    } catch {}
+
+    Write-Host ""
+    Write-Host "[*] Auto-syncing live tunnel with Render Cloud Backend..." -ForegroundColor Cyan
+    try {
+        $syncBody = @{
+            tunnel_url = $PublicUrl
+            secret_key = $SecretKey
+        } | ConvertTo-Json
+        $syncResp = Invoke-RestMethod -Uri "$BackendUrl/api/v1/admin/register-tunnel" -Method Post -Body $syncBody -ContentType "application/json" -TimeoutSec 10 -ErrorAction Stop
+        if ($syncResp.success) {
+            $AutoSynced = $true
+            Write-Host "[OK] AUTOMATICALLY SYNCED WITH RENDER!" -ForegroundColor Green
+            Write-Host "     Render Backend is now directing inference to this live tunnel!" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "[!] Auto-sync pending: Backend at $BackendUrl is waking up or compiling." -ForegroundColor Yellow
+        Write-Host "    (The heartbeat loop will automatically connect as soon as backend responds)" -ForegroundColor DarkGray
+    }
+}
+
+# ---------------------------------------------------------------------
+# 5. Display Status & Interactive Heartbeat Loop
 # ---------------------------------------------------------------------
 Write-Host ""
 Write-Host "===============================================================" -ForegroundColor Green
@@ -273,38 +312,59 @@ if ($PublicUrl) {
     Write-Host " $PublicUrl" -ForegroundColor Green -BackgroundColor Black
     Write-Host "===============================================================" -ForegroundColor Green
     
-    try {
-        Set-Clipboard -Value $PublicUrl
-        Write-Host "[OK] Live AI URL copied directly to your clipboard!" -ForegroundColor Cyan
-    } catch {}
-
-    Write-Host ""
-    Write-Host "-> Cloud Integration Instructions (Render Backend):" -ForegroundColor Yellow
-    Write-Host "   1. Open Render Dashboard: https://dashboard.render.com" -ForegroundColor White
-    Write-Host "   2. Click 'agrishield-backend' -> 'Environment' tab" -ForegroundColor White
-    Write-Host "   3. Update AI_SERVICE_URL to:" -ForegroundColor White
-    Write-Host "      $PublicUrl" -ForegroundColor Green
-    Write-Host "   4. Ensure AI_MODE is set to: live" -ForegroundColor White
-    Write-Host "   5. Click 'Save Changes' (Render will re-deploy with your live AI in ~60s)" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "[i] Advantages of Cloudflare Quick Tunnel:" -ForegroundColor DarkCyan
-    Write-Host "    - ZERO BANDWIDTH LIMIT (no 1GB limit)" -ForegroundColor DarkCyan
-    Write-Host "    - ZERO ACCOUNT / SIGNUP REQUIRED" -ForegroundColor DarkCyan
-    Write-Host "    - Clean direct JSON API delivery with no warning banners" -ForegroundColor DarkCyan
+    if ($AutoSynced) {
+        Write-Host ""
+        Write-Host ">>> ZERO-TOUCH ACTIVE: NO NEED TO UPDATE RENDER MANUALLY! <<<" -ForegroundColor Green
+        Write-Host "    Your hosted website will now run all AI models through your laptop." -ForegroundColor White
+        Write-Host "    Keep this terminal window OPEN while your AI models are in use." -ForegroundColor Yellow
+    } else {
+        Write-Host ""
+        Write-Host "-> One-Time Render Setup (if auto-sync is not yet deployed to cloud):" -ForegroundColor Yellow
+        Write-Host "   Set AI_SERVICE_URL = $PublicUrl in Render Dashboard -> Environment" -ForegroundColor White
+    }
 } else {
     Write-Host " LOCAL AI STATUS: Running on http://127.0.0.1:$Port" -ForegroundColor Green
     Write-Host " To expose with Cloudflare: .\start_ai_tunnel.ps1 -TunnelType cloudflare" -ForegroundColor Yellow
-    Write-Host " To expose with ngrok:      .\start_ai_tunnel.ps1 -TunnelType ngrok" -ForegroundColor Yellow
     Write-Host "===============================================================" -ForegroundColor Green
 }
 
-if (-not $NonInteractive) {
+if (-not $NonInteractive -and $PublicUrl) {
     Write-Host ""
-    Write-Host ">>> Tunnel is LIVE! Keep this terminal window OPEN while your AI is in use." -ForegroundColor Yellow
-    Write-Host "    (When finished, press Enter or Ctrl+C to stop the tunnel and exit)" -ForegroundColor DarkGray
-    Read-Host
+    Write-Host ">>> Tunnel is ACTIVE! Running background heartbeat every 30s..." -ForegroundColor Cyan
+    Write-Host "    (Press any key or Enter to stop the tunnel and exit)" -ForegroundColor DarkGray
+    Write-Host ""
+
+    $RunHeartbeat = $true
+    while ($RunHeartbeat) {
+        # Sleep in 1-second ticks so key presses exit immediately
+        for ($s = 0; $s -lt 30; $s++) {
+            Start-Sleep -Seconds 1
+            if ([Console]::KeyAvailable) {
+                $key = [Console]::ReadKey($true)
+                $RunHeartbeat = $false
+                break
+            }
+        }
+
+        if (-not $RunHeartbeat) { break }
+
+        # Heartbeat ping to keep Render actively pointed to our live tunnel
+        try {
+            $hbBody = @{
+                tunnel_url = $PublicUrl
+                secret_key = $SecretKey
+            } | ConvertTo-Json
+            $hbResp = Invoke-RestMethod -Uri "$BackendUrl/api/v1/admin/register-tunnel" -Method Post -Body $hbBody -ContentType "application/json" -TimeoutSec 6 -ErrorAction Stop
+            $timeStr = (Get-Date).ToString("HH:mm:ss")
+            Write-Host "[$timeStr] Heartbeat Active - Cloud backend linked to your live AI models." -ForegroundColor DarkCyan
+        } catch {
+            $timeStr = (Get-Date).ToString("HH:mm:ss")
+            Write-Host "[$timeStr] Heartbeat retry: ($($_.Exception.Message))" -ForegroundColor DarkGray
+        }
+    }
+
     Write-Host ""
     Write-Host "[*] Stopping Cloudflare tunnel..." -ForegroundColor Yellow
     Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-    Write-Host "[OK] Tunnel stopped cleanly. Local AI service (port $Port) remains running." -ForegroundColor Green
+    Write-Host "[OK] Tunnel closed cleanly. Cloud backend will automatically resume offline fallback." -ForegroundColor Green
 }
