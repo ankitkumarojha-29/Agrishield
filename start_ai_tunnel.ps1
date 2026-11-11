@@ -104,7 +104,10 @@ if ($AiOnly) {
 # 3. Locate & Run Tunnel (ngrok or fallback)
 # ---------------------------------------------------------------------
 $NgrokCandidates = @(
+    (Join-Path $AiPath "ngrok.exe"),
+    (Join-Path $RootPath "ai\ngrok.exe"),
     "ngrok",
+    "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe",
     "$env:LOCALAPPDATA\Programs\ngrok\ngrok.exe",
     "$env:ProgramFiles\ngrok\ngrok.exe",
     "$env:USERPROFILE\bin\ngrok.exe",
@@ -127,11 +130,55 @@ foreach ($cmd in $NgrokCandidates) {
 $PublicUrl = $null
 
 if ($NgrokCommand) {
+    Write-Host "[OK] Located ngrok engine: $NgrokCommand" -ForegroundColor Gray
+
+    # Check if authtoken is configured
+    $ngrokConfigPath = "$env:LOCALAPPDATA\ngrok\ngrok.yml"
+    $hasAuthToken = $false
+    if (Test-Path $ngrokConfigPath) {
+        $content = Get-Content $ngrokConfigPath -Raw
+        if ($content -match "authtoken:") {
+            $hasAuthToken = $true
+        }
+    }
+
+    if (-not $hasAuthToken) {
+        Write-Host ""
+        Write-Host "[!] Action Required: ngrok requires a free account authtoken to start." -ForegroundColor Yellow
+        Write-Host "    1. Open your browser: https://dashboard.ngrok.com/get-started/your-authtoken" -ForegroundColor Cyan
+        Write-Host "    2. Copy your Auth Token." -ForegroundColor Cyan
+        Write-Host ""
+        $userToken = Read-Host "    Paste your ngrok Auth Token here (or press Enter to skip)"
+        if ($userToken -and $userToken.Trim()) {
+            & $NgrokCommand config add-authtoken $userToken.Trim()
+            Write-Host "[OK] AuthToken saved successfully!" -ForegroundColor Green
+            $hasAuthToken = $true
+        }
+    }
+
     $NgrokProc = Get-Process -Name "ngrok" -ErrorAction SilentlyContinue
 
     if (-not $NgrokProc) {
         Write-Host "[*] Launching ngrok tunnel forwarding to port $Port..." -ForegroundColor Yellow
-        Start-Process -FilePath $NgrokCommand -ArgumentList "http $Port --log=stdout" -WindowStyle Minimized
+        
+        # Check if user has a static domain configured in ai/.env or ngrok.yml
+        $staticDomain = $null
+        if (Test-Path (Join-Path $AiPath ".env")) {
+            $aiEnv = Get-Content (Join-Path $AiPath ".env")
+            foreach ($line in $aiEnv) {
+                if ($line -match "^NGROK_DOMAIN=(.+)") {
+                    $staticDomain = $matches[1].Trim()
+                }
+            }
+        }
+
+        $ngrokArgs = "http $Port --log=stdout"
+        if ($staticDomain) {
+            Write-Host "[*] Using permanent static domain: $staticDomain" -ForegroundColor Cyan
+            $ngrokArgs = "http --domain=$staticDomain $Port --log=stdout"
+        }
+
+        Start-Process -FilePath $NgrokCommand -ArgumentList $ngrokArgs -WindowStyle Minimized
         Start-Sleep -Seconds 3
     } else {
         Write-Host "[OK] ngrok process already active (PID: $($NgrokProc[0].Id))" -ForegroundColor Green

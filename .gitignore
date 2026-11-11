@@ -97,3 +97,8 @@ WHATSAPP_ENV_SETUP.md
 # Local infinityfree upload bundles
 htdocs/
 htdocs.zip
+
+# Executables & binaries
+ngrok.exe
+**/ngrok.exe
+*.exe
