@@ -1,6 +1,6 @@
 import uuid
 import enum
-from sqlalchemy import Column, String, Float, ForeignKey, DateTime, Enum as SQLEnum, Text, Boolean, LargeBinary, Date
+from sqlalchemy import Column, String, Float, ForeignKey, DateTime, Enum as SQLEnum, Text, Boolean, LargeBinary, Date, JSON
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -69,6 +69,23 @@ class User(Base):
     is_approved = Column(Boolean, default=True) # Requires approval by existing admin if new admin
     avatar_url = Column(Text, nullable=True) # Profile photo URL or Data URI
     created_at = Column(DateTime, default=func.now())
+    
+    # Regulatory & Audit Retention (CERT-In & DPDP Act 2023)
+    registration_ip = Column(String(45), nullable=True)
+    last_login_ip = Column(String(45), nullable=True)
+    deleted_ip = Column(String(45), nullable=True)
+    is_deleted = Column(Boolean, default=False, index=True)
+    deleted_at = Column(DateTime, nullable=True)
+    purge_scheduled_at = Column(DateTime, nullable=True)
+    deleted_by_id = Column(UUID(as_uuid=True), nullable=True)
+    deletion_reason = Column(Text, nullable=True)
+
+    # Account Restoration Governance (DPDP Act Sec 6 Re-Consent)
+    restore_requested = Column(Boolean, default=False, index=True)
+    restore_requested_at = Column(DateTime, nullable=True)
+    restore_reason = Column(Text, nullable=True)
+    restored_at = Column(DateTime, nullable=True)
+    restored_by_id = Column(UUID(as_uuid=True), nullable=True)
     
     farms = relationship("Farm", back_populates="owner", foreign_keys="Farm.user_id")
 
@@ -199,4 +216,17 @@ class MandiPriceRecord(Base):
     max_price = Column(Float, nullable=False)
     modal_price = Column(Float, nullable=False)
     created_at = Column(DateTime, default=func.now())
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    action = Column(String(60), nullable=False, index=True) # e.g. ACCOUNT_DELETED_BY_FARMER, ACCOUNT_TERMINATED_BY_ADMIN
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(Text, nullable=True)
+    details = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=func.now(), index=True)
+
 

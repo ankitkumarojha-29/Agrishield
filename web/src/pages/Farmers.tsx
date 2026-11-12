@@ -19,7 +19,11 @@ import {
   Eye,
   AlertTriangle,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Shield,
+  Trash2,
+  Clock,
+  RotateCcw
 } from 'lucide-react';
 import { api } from '../api';
 import type { Farmer, Farm, FarmerOverview } from '../api';
@@ -62,6 +66,126 @@ export default function Farmers() {
   const [searchParams] = useSearchParams();
   const [reconciling, setReconciling] = useState(false);
   const [reconcileMessage, setReconcileMessage] = useState<string | null>(null);
+
+  // Directory Mode: 'active' | 'archived'
+  const [directoryTab, setDirectoryTab] = useState<'active' | 'archived'>('active');
+  const [archivedFarmers, setArchivedFarmers] = useState<Farmer[]>([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
+  const [dossierDownloadingId, setDossierDownloadingId] = useState<string | null>(null);
+  const [archivedSubFilter, setArchivedSubFilter] = useState<'all' | 'requests_only'>('all');
+
+  // Termination modal state
+  const [showTerminateModal, setShowTerminateModal] = useState(false);
+  const [terminateFarmerTarget, setTerminateFarmerTarget] = useState<Farmer | null>(null);
+  const [terminateReason, setTerminateReason] = useState('');
+  const [terminating, setTerminating] = useState(false);
+  const [terminateMessage, setTerminateMessage] = useState<string | null>(null);
+
+  const loadArchivedFarmers = async () => {
+    setLoadingArchived(true);
+    try {
+      const res = await api.getArchivedFarmers();
+      if (res.success && Array.isArray(res.data)) {
+        setArchivedFarmers(res.data);
+      }
+    } catch (e) {
+      console.error("Error loading archived farmers", e);
+    } finally {
+      setLoadingArchived(false);
+    }
+  };
+
+  const handleDownloadDossier = async (farmer: Farmer) => {
+    setDossierDownloadingId(farmer.id);
+    try {
+      const res = await api.getFarmerAuditDossier(farmer.id);
+      if (res.success && res.data) {
+        const jsonStr = JSON.stringify(res.data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SEC63_BSA_Audit_Dossier_${farmer.phone || farmer.id}_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        alert(res?.error?.message || 'डॉसियर डाउनलोड करने में त्रुटि आई');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error?.message || err.message || 'डॉसियर तैयार करने में विफल');
+    } finally {
+      setDossierDownloadingId(null);
+    }
+  };
+
+  const handleConfirmTerminate = async () => {
+    if (!terminateFarmerTarget) return;
+    setTerminating(true);
+    setTerminateMessage(null);
+    try {
+      const res = await api.adminTerminateFarmer(terminateFarmerTarget.id, terminateReason.trim());
+      if (res.success) {
+        setTerminateMessage(res.data?.message || 'किसान खाता 180-दिवसीय क्वारंटाइन में डाल दिया गया है।');
+        setTimeout(() => {
+          setShowTerminateModal(false);
+          setTerminateFarmerTarget(null);
+          setTerminateReason('');
+          setTerminateMessage(null);
+          setSelectedFarmer(null);
+          loadFarmers();
+          loadArchivedFarmers();
+        }, 1800);
+      } else {
+        alert(res?.error?.message || 'खाता समाप्त करने में त्रुटि आई');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error?.message || err.message || 'त्रुटि उत्पन्न हुई');
+    } finally {
+      setTerminating(false);
+    }
+  };
+
+  const handleAdminApproveRestore = async (farmer: Farmer) => {
+    if (!window.confirm(`क्या आप किसान '${farmer.name || farmer.phone}' का खाता पुनः बहाल (Restore) करना चाहते हैं? बहाली के बाद किसान सामान्य रूप से लॉगिन एवं सेवाओं का उपयोग कर सकेगा।`)) {
+      return;
+    }
+    try {
+      const res = await api.adminApproveFarmerRestore(farmer.id);
+      if (res && res.success) {
+        alert(res.data?.message || 'खाता सफलतापूर्वक पुनः बहाल कर दिया गया है।');
+        if (selectedFarmer?.id === farmer.id) {
+          setSelectedFarmer(null);
+        }
+        loadArchivedFarmers();
+        loadFarmers();
+      } else {
+        alert(res?.error?.message || 'खाता बहाल करने में त्रुटि आई');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error?.message || err.message || 'खाता बहाली में त्रुटि हुई');
+    }
+  };
+
+  const handleAdminRejectRestore = async (farmer: Farmer) => {
+    const reason = window.prompt(`किसान '${farmer.name || farmer.phone}' का बहाली अनुरोध अस्वीकार करने का कारण दर्ज करें:`, 'सत्यापन उपरांत प्रशासनिक निर्णय');
+    if (reason === null) return;
+    try {
+      const res = await api.adminRejectFarmerRestore(farmer.id, reason.trim() || undefined);
+      if (res && res.success) {
+        alert(res.data?.message || 'बहाली अनुरोध अस्वीकार किया गया। खाता 180-दिवसीय क्वारंटाइन में रहेगा।');
+        if (selectedFarmer?.id === farmer.id) {
+          setSelectedFarmer({ ...selectedFarmer, restore_requested: false });
+        }
+        loadArchivedFarmers();
+      } else {
+        alert(res?.error?.message || 'अनुरोध अस्वीकार करने में त्रुटि आई');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error?.message || err.message || 'अनुरोध अस्वीकार करने में त्रुटि हुई');
+    }
+  };
 
   const handleReconcileScans = async () => {
     setReconciling(true);
@@ -298,7 +422,239 @@ export default function Farmers() {
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
+      {/* Directory Mode Switcher: Active Farmers vs 180-Day Statutory Quarantined */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          type="button"
+          onClick={() => setDirectoryTab('active')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+            directoryTab === 'active'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Users size={16} />
+          <span>सक्रिय किसान (Active Farmers) ({farmers.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setDirectoryTab('archived');
+            loadArchivedFarmers();
+          }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+            directoryTab === 'archived'
+              ? 'bg-rose-700 text-white shadow-xs'
+              : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
+          }`}
+        >
+          <Shield size={16} />
+          <span>180-दिवसीय वैधानिक क्वारंटाइन (Quarantined Farmers)</span>
+          {archivedFarmers.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-200 text-rose-900 font-black">
+              {archivedFarmers.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {directoryTab === 'archived' ? (
+        <div className="space-y-4">
+          <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-xs text-rose-900 space-y-1">
+            <div className="font-bold flex items-center gap-2 text-rose-950">
+              <Shield size={16} className="text-rose-700 shrink-0" />
+              <span>180-दिवसीय वैधानिक क्वारंटाइन एवं साक्ष्य संरक्षण (DPDP Act 2023 Sec 8(7) &amp; CERT-In Directives)</span>
+            </div>
+            <p className="text-[11px] text-rose-800 leading-relaxed">
+              इस खंड में वे किसान खाते शामिल हैं जिन्हें किसान द्वारा स्वयं हटाया गया है या व्यवस्थापक द्वारा समाप्त किया गया है।
+              भारतीय साक्ष्य अधिनियम (Bharatiya Sakshya Adhiniyam 2023, धारा 63) के तहत यह डेटा 180 दिनों तक न्यायालय-मान्य इलेक्ट्रॉनिक साक्ष्य
+              के रूप में सुरक्षित रहेगा। 181वें दिन स्वचालित PII विलोपन निष्पादित होगा।
+            </p>
+          </div>
+
+          {/* Sub-Filter: All Quarantined vs Restore Requests Pending */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setArchivedSubFilter('all')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                archivedSubFilter === 'all'
+                  ? 'bg-rose-900 text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              सभी क्वारंटाइन खाते ({archivedFarmers.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setArchivedSubFilter('requests_only')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                archivedSubFilter === 'requests_only'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white text-amber-800 hover:bg-amber-50 border border-amber-300'
+              }`}
+            >
+              <RotateCcw size={13} className={archivedSubFilter === 'requests_only' ? 'text-white' : 'text-amber-700'} />
+              <span>बहाली अनुरोध लंबित (Restore Requests)</span>
+              {archivedFarmers.filter(f => f.restore_requested).length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-200 text-amber-950 font-black">
+                  {archivedFarmers.filter(f => f.restore_requested).length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="bg-white border border-slate-200/80 rounded-3xl shadow-xs overflow-hidden">
+            {loadingArchived ? (
+              <div className="p-8">
+                <TableSkeleton rows={4} columns={6} />
+              </div>
+            ) : archivedFarmers.length === 0 ? (
+              <div className="p-12 text-center text-slate-500 space-y-2">
+                <CheckCircle2 size={36} className="text-emerald-500 mx-auto" />
+                <h3 className="text-base font-bold text-slate-800">कोई क्वारंटाइन खाता नहीं है</h3>
+                <p className="text-xs text-slate-400">वर्तमान में किसी भी किसान का खाता 180-दिवसीय क्वारंटाइन में नहीं है।</p>
+              </div>
+            ) : (archivedSubFilter === 'requests_only' && archivedFarmers.filter(f => f.restore_requested).length === 0) ? (
+              <div className="p-12 text-center text-slate-500 space-y-2">
+                <CheckCircle2 size={36} className="text-emerald-500 mx-auto" />
+                <h3 className="text-base font-bold text-slate-800">कोई बहाली अनुरोध लंबित नहीं है</h3>
+                <p className="text-xs text-slate-400">सभी क्वारंटाइन किसानों के अनुरोध संसाधित हो चुके हैं।</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200 font-bold">
+                    <tr>
+                      <th className="px-5 py-3.5">किसान / Farmer</th>
+                      <th className="px-5 py-3.5">संपर्क / Phone</th>
+                      <th className="px-5 py-3.5">निष्क्रिय तिथि / IP</th>
+                      <th className="px-5 py-3.5">क्वारंटाइन शेष / Days Left</th>
+                      <th className="px-5 py-3.5">कारण / Reason</th>
+                      <th className="px-5 py-3.5 text-right">कार्रवाई / Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {archivedFarmers
+                      .filter(f => archivedSubFilter === 'all' || f.restore_requested)
+                      .map((f) => (
+                      <tr key={f.id} className={`transition-colors ${f.restore_requested ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-rose-50/20'}`}>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full overflow-hidden border border-rose-300 bg-slate-100 shrink-0">
+                              <img 
+                                src={f.avatar_url || DEFAULT_AVATAR} 
+                                alt={f.name || 'Farmer'} 
+                                className="w-full h-full object-cover" 
+                                width={36} 
+                                height={36}
+                                onError={(e) => { e.currentTarget.src = DEFAULT_AVATAR; }}
+                              />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-900 text-sm">{f.name || 'Farmer'}</span>
+                                {f.restore_requested && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                    <RotateCcw size={10} />
+                                    बहाली अनुरोध
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono">ID: {f.id.substring(0, 8)}...</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 font-mono font-semibold text-slate-800">
+                          {f.phone || 'N/A'}
+                          {f.email && <div className="text-[10px] text-slate-400 font-sans">{f.email}</div>}
+                        </td>
+                        <td className="px-5 py-4 text-[11px]">
+                          <div className="font-semibold text-slate-800">{f.deleted_at ? f.deleted_at.slice(0, 10) : 'N/A'}</div>
+                          <div className="font-mono text-slate-400 text-[10px]">IP: {f.deleted_ip || f.last_login_ip || 'N/A'}</div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                            <Clock size={12} className="text-rose-600" />
+                            <span>{f.days_left ?? 0} दिन शेष</span>
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 max-w-xs text-[11px] text-slate-700">
+                          <div className="truncate" title={f.deletion_reason || ''}>
+                            {f.deletion_reason || 'DPDP Act 2023 180-Day Retention'}
+                          </div>
+                          {f.restore_requested && (
+                            <div className="mt-1 text-[10px] text-amber-900 bg-amber-100/70 p-1 rounded border border-amber-200">
+                              <span className="font-bold">बहाली कारण: </span>
+                              <span title={f.restore_reason || ''}>{f.restore_reason || 'पुनर्बहाली की प्रार्थना'}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="inline-flex items-center gap-1.5 justify-end flex-wrap">
+                            {f.restore_requested ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdminApproveRestore(f)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-2xs transition-colors cursor-pointer"
+                                  title="Approve and Restore Farmer Account"
+                                >
+                                  <CheckCircle2 size={13} />
+                                  <span>बहाल करें</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdminRejectRestore(f)}
+                                  className="inline-flex items-center gap-1 px-2 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg font-semibold text-xs transition-colors cursor-pointer"
+                                  title="Decline Restoration Request"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleAdminApproveRestore(f)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 border border-slate-200 rounded-lg font-semibold text-xs transition-colors cursor-pointer"
+                                title="Admin Direct Restore"
+                              >
+                                <RotateCcw size={12} />
+                                <span className="hidden sm:inline">बहाल करें</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadDossier(f)}
+                              disabled={dossierDownloadingId === f.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                              title="Download court-admissible Section 63 BSA Forensic Audit Dossier"
+                            >
+                              <Download size={13} />
+                              <span className="hidden sm:inline">{dossierDownloadingId === f.id ? '...' : 'BSA 63'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleInspectFarmer(f)}
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold text-xs transition-colors cursor-pointer"
+                              title="Inspect farmer parcels and history"
+                            >
+                              <Eye size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Filter & Search Bar */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
@@ -540,6 +896,8 @@ export default function Farmers() {
           </div>
         )}
       </div>
+    </div>
+  )}
 
       {/* Farmer Inspection Slide-Over / Modal */}
       {selectedFarmer && (
@@ -600,6 +958,99 @@ export default function Farmers() {
                 <span className="font-semibold">Registered:</span>
                 <span>{selectedFarmer.created_at ? selectedFarmer.created_at.split('T')[0] : 'Active'}</span>
               </div>
+
+              {/* Administrative Actions Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-200 mt-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadDossier(selectedFarmer)}
+                  disabled={dossierDownloadingId === selectedFarmer.id}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                  title="Section 63 BSA Forensic Electronic Dossier"
+                >
+                  <Download size={13} className="text-sky-700" />
+                  <span>{dossierDownloadingId === selectedFarmer.id ? 'डाउनलोडिंग...' : 'BSA 63 ऑडिट रिपोर्ट (Dossier)'}</span>
+                </button>
+
+                {!selectedFarmer.is_deleted ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTerminateFarmerTarget(selectedFarmer);
+                      setShowTerminateModal(true);
+                      setTerminateReason('');
+                      setTerminateMessage(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-900 border border-rose-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                    title="Terminate Farmer Account"
+                  >
+                    <Trash2 size={13} className="text-rose-600" />
+                    <span>खाता समाप्त करें (Terminate)</span>
+                  </button>
+                ) : null}
+              </div>
+
+              {/* Quarantined Status & Restoration Actions for Inspected Farmer */}
+              {selectedFarmer.is_deleted && (
+                <div className="w-full mt-3 p-3.5 bg-rose-50/90 border border-rose-200 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-rose-950 text-xs flex items-center gap-1.5">
+                      <Shield size={14} className="text-rose-700" />
+                      180-दिवसीय वैधानिक क्वारंटाइन (DPDP Act 2023)
+                    </span>
+                    <span className="text-[11px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
+                      {selectedFarmer.days_left ?? 0} दिन शेष
+                    </span>
+                  </div>
+                  {selectedFarmer.deletion_reason && (
+                    <p className="text-[11px] text-slate-700">
+                      <strong className="text-slate-900">निष्क्रियता कारण:</strong> {selectedFarmer.deletion_reason}
+                    </p>
+                  )}
+                  {selectedFarmer.restore_requested ? (
+                    <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-2">
+                      <div className="flex items-center gap-1.5 text-amber-950 font-bold text-xs">
+                        <RotateCcw size={14} className="text-amber-700" />
+                        <span>किसान द्वारा खाता पुनर्बहाली अनुरोध प्राप्त हुआ है:</span>
+                      </div>
+                      {selectedFarmer.restore_reason && (
+                        <p className="text-[11px] text-amber-900 italic bg-white/90 p-2 rounded-lg border border-amber-200">
+                          "{selectedFarmer.restore_reason}"
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleAdminApproveRestore(selectedFarmer)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                        >
+                          <CheckCircle2 size={13} />
+                          <span>स्वीकार करें व खाता बहाल करें (Approve &amp; Restore)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAdminRejectRestore(selectedFarmer)}
+                          className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                        >
+                          <X size={13} />
+                          <span>अस्वीकार (Decline)</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleAdminApproveRestore(selectedFarmer)}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                      >
+                        <RotateCcw size={13} />
+                        <span>खाता पुनः बहाल करें (Direct Admin Restore)</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Tab Navigation */}
@@ -1008,6 +1459,89 @@ export default function Farmers() {
                 <ExternalLink size={12} /> मूल फोटो खोलें (Open Full Image)
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Administrator Termination Confirmation Modal */}
+      {showTerminateModal && terminateFarmerTarget && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5 text-rose-700">
+                <div className="p-2 rounded-xl bg-rose-100 text-rose-700">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    किसान खाता समाप्त करें
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    180-Day Regulatory Retention (DPDP Act 2023)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!terminating) setShowTerminateModal(false);
+                }}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {terminateMessage ? (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-2">
+                <CheckCircle2 size={32} className="text-emerald-600 mx-auto" />
+                <h4 className="text-sm font-bold text-emerald-900">खाता सफलतापूर्वक समाप्त हुआ</h4>
+                <p className="text-xs text-emerald-800 leading-relaxed">{terminateMessage}</p>
+              </div>
+            ) : (
+              <div className="space-y-3 text-xs">
+                <p className="text-slate-600">
+                  आप किसान <strong className="text-slate-900">{terminateFarmerTarget.name}</strong> ({terminateFarmerTarget.phone}) का खाता समाप्त करने जा रहे हैं।
+                </p>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900 space-y-1">
+                  <p className="font-bold">वैधानिक सुरक्षा प्रभाव:</p>
+                  <p>किसान का लॉगिन तुरंत अवरुद्ध हो जाएगा और खाता 180 दिनों तक कानूनी ऑडिट हेतु सुरक्षित क्वारंटाइन में रहेगा।</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    समाप्ति का प्रशासनिक कारण (Administrative Reason):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={terminateReason}
+                    onChange={(e) => setTerminateReason(e.target.value)}
+                    placeholder="जैसे: फर्जी खसरा नंबर / नियमों का उल्लंघन / किसान अनुरोध..."
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-hidden"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowTerminateModal(false)}
+                    disabled={terminating}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    रद्द करें (Cancel)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmTerminate}
+                    disabled={terminating}
+                    className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Trash2 size={13} />
+                    <span>{terminating ? 'समाप्त कर रहे हैं...' : 'खाता समाप्त करें'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

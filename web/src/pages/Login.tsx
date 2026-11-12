@@ -1,7 +1,7 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
-import { Sprout, Shield, Phone, Mail, Lock, ArrowRight, CheckCircle2, AlertTriangle, X, ExternalLink } from 'lucide-react';
+import { Sprout, Shield, Phone, Mail, Lock, ArrowRight, CheckCircle2, AlertTriangle, X, ExternalLink, RotateCcw, ShieldAlert, Clock, Sparkles } from 'lucide-react';
 import { useUserRole } from '../context/RoleContext';
 import { validateIndianMobile, validatePersonName, validateEmail, validatePassword } from '../utils/validators';
 import { initGoogleSignIn, getGoogleClientId, type GoogleCredentialResponse } from '../utils/googleAuth';
@@ -34,7 +34,30 @@ export default function Login() {
   // Status state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [infoBanner, setInfoBanner] = useState<string | null>(() => {
+    if (typeof window !== 'undefined' && window.location.search) {
+      if (window.location.search.includes('session_expired=true')) {
+        return '⏱️ किसान सत्र सुरक्षा: 30 मिनट की समयावधि पूर्ण होने के कारण आपका सत्र स्वतः समाप्त हो गया है। कृपया पुनः लॉगिन करें। (Your 30-minute session has expired. Please log in again.)';
+      }
+      if (window.location.search.includes('deleted=true')) {
+        return '🛡️ आपका खाता 180 दिनों के वैधानिक क्वारंटाइन में डाल दिया गया है। (Account deactivated and quarantined for 180 days per Indian law).';
+      }
+    }
+    return null;
+  });
   const [adminStatusType, setAdminStatusType] = useState<'pending' | 'expired' | null>(null);
+
+  // Account Restoration Petition state (DPDP Act 2023 180-day window)
+  const [quarantinedPhone, setQuarantinedPhone] = useState<string | null>(null);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoreOtp, setRestoreOtp] = useState('');
+  const [restoreReason, setRestoreReason] = useState('');
+  const [restoreDemoOtp, setRestoreDemoOtp] = useState<string | null>(null);
+  const [restoreDaysLeft, setRestoreDaysLeft] = useState<number | null>(null);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [restoreError, setRestoreError] = useState('');
+  const [restoreSuccessMsg, setRestoreSuccessMsg] = useState('');
+  const [restoreStep, setRestoreStep] = useState<'request' | 'verify'>('request');
 
   // ──────────────────────────────────────────────────────────────────────────
   // Initialize Google Identity Services (GIS) on mount
@@ -57,6 +80,95 @@ export default function Login() {
 
     return () => clearTimeout(timer);
   }, [authMode, farmerStep]);
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // SECTION: ACCOUNT RESTORATION HANDLERS (DPDP Act 2023 Sec 6 & 12)
+  // ──────────────────────────────────────────────────────────────────────────
+  const checkQuarantineError = (err: any, fallbackPhone?: string) => {
+    const code = err.response?.data?.error?.code;
+    const msg = String(err.response?.data?.error?.message || err.message || '');
+    if (code === 'ACCOUNT_DELETED' || (err.response?.status === 403 && (msg.includes('180') || msg.toLowerCase().includes('quarantine')))) {
+      const p = fallbackPhone || phone.trim() || normalizedPhone;
+      const v = validateIndianMobile(p);
+      const target = v.isValid && v.normalized ? v.normalized : p;
+      setQuarantinedPhone(target || 'registered phone');
+      return true;
+    }
+    return false;
+  };
+
+  const handleOpenRestoreModal = (targetPhone?: string) => {
+    const p = targetPhone || quarantinedPhone || phone;
+    setShowRestoreModal(true);
+    setRestoreError('');
+    setRestoreSuccessMsg('');
+    if (p) {
+      handleRequestRestoreOtp(p);
+    }
+  };
+
+  const handleRequestRestoreOtp = async (phoneTarget?: string) => {
+    const rawTarget = phoneTarget || quarantinedPhone || phone;
+    const v = validateIndianMobile(rawTarget);
+    if (!v.isValid || !v.normalized) {
+      setRestoreError(v.error || 'कृपया मान्य 10-अंकों का मोबाइल नंबर दर्ज करें।');
+      return;
+    }
+    setRestoreLoading(true);
+    setRestoreError('');
+    try {
+      const res = await api.requestAccountRestoreOtp(v.normalized);
+      if (res && res.success) {
+        if (res.data?.otp_code) {
+          setRestoreDemoOtp(res.data.otp_code);
+          setRestoreOtp(res.data.otp_code);
+        }
+        if (res.data?.days_left !== undefined) {
+          setRestoreDaysLeft(res.data.days_left);
+        }
+        setRestoreStep('verify');
+      } else {
+        setRestoreError(res?.error?.message || 'ओटीपी भेजने में विफल रहा।');
+      }
+    } catch (err: any) {
+      setRestoreError(err.response?.data?.error?.message || err.message || 'ओटीपी भेजने में त्रुटि हुई।');
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
+  const handleConfirmRestore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanOtp = restoreOtp.trim();
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      setRestoreError('कृपया 6 अंकों का ओटीपी दर्ज करें।');
+      return;
+    }
+    const rawTarget = quarantinedPhone || phone;
+    const v = validateIndianMobile(rawTarget);
+    const targetPhone = v.isValid && v.normalized ? v.normalized : rawTarget;
+    if (!targetPhone) {
+      setRestoreError('मान्य मोबाइल नंबर आवश्यक है।');
+      return;
+    }
+
+    setRestoreLoading(true);
+    setRestoreError('');
+    try {
+      const res = await api.confirmAccountRestore(targetPhone, cleanOtp, restoreReason);
+      if (res && res.success) {
+        setRestoreSuccessMsg(
+          res.data?.message || 'आपका खाता पुनर्बहाली अनुरोध सफलतापूर्वक दर्ज कर लिया गया है। व्यवस्थापक द्वारा स्वीकृति के बाद खाता सक्रिय हो जाएगा।'
+        );
+      } else {
+        setRestoreError(res?.error?.message || 'अनुरोध सबमिट करने में विफल रहा।');
+      }
+    } catch (err: any) {
+      setRestoreError(err.response?.data?.error?.message || err.message || 'बहाली अनुरोध सबमिशन विफल रहा।');
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
 
   // ──────────────────────────────────────────────────────────────────────────
   // SECTION: GOOGLE OAUTH CREDENTIAL HANDLER
@@ -98,6 +210,7 @@ export default function Login() {
         setError(res?.error?.message || 'Google authentication failed.');
       }
     } catch (err: any) {
+      checkQuarantineError(err);
       setError(err.response?.data?.error?.message || err.message || 'Google Sign-In failed.');
     } finally {
       setGoogleLoading(false);
@@ -227,6 +340,7 @@ export default function Login() {
         setError(res?.error?.message || 'Failed to send OTP code.');
       }
     } catch (err: any) {
+      checkQuarantineError(err, formattedPhone);
       setError(err.response?.data?.error?.message || err.message || 'OTP sending failed.');
     } finally {
       setLoading(false);
@@ -270,6 +384,7 @@ export default function Login() {
         setError('Verification succeeded but no session token was received.');
       }
     } catch (err: any) {
+      checkQuarantineError(err, normalizedPhone);
       const msg = err.response?.data?.error?.message || err.message || 'OTP verification failed. Please try again.';
       setError(msg);
     } finally {
@@ -388,6 +503,22 @@ export default function Login() {
           </button>
         </div>
 
+        {infoBanner && (
+          <div className="mb-4 text-xs text-amber-900 bg-amber-50 p-3.5 rounded-xl border border-amber-200 flex items-start justify-between gap-2 animate-in fade-in duration-200">
+            <div className="flex items-start gap-2">
+              <CheckCircle2 size={16} className="text-amber-600 shrink-0 mt-0.5" />
+              <span>{infoBanner}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setInfoBanner(null)}
+              className="text-amber-700 hover:text-amber-950 p-0.5 rounded cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 text-xs text-red-700 bg-red-50 p-3.5 rounded-xl border border-red-200 space-y-2 animate-in fade-in duration-200">
             <div className="flex items-start gap-2">
@@ -409,6 +540,42 @@ export default function Login() {
                 Note: An existing system administrator must approve your application from their Admin Approvals console within 7 days.
               </p>
             )}
+          </div>
+        )}
+
+        {/* Quarantined Account Callout with Direct Restoration Link */}
+        {quarantinedPhone && (
+          <div className="mb-4 text-xs text-amber-950 bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-2xl border border-amber-300 space-y-3 animate-in fade-in duration-200 shadow-xs">
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-200/80 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0">
+                <ShieldAlert size={18} />
+              </div>
+              <div className="space-y-1">
+                <p className="font-bold text-amber-950 text-xs sm:text-sm">
+                  क्या आप अपना खाता पुनः बहाल (Restore) करना चाहते हैं?
+                </p>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  डीपीडीपी अधिनियम, 2023 (DPDP Act 2023 Sec 6 & 12) के तहत आपका खाता 180 दिनों की वैधानिक अवधि में सुरक्षित है। आप ओटीपी सत्यापन द्वारा व्यवस्थापक (Admin) को खाता बहाली का अनुरोध भेज सकते हैं।
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-200/80">
+              <button
+                type="button"
+                onClick={() => handleOpenRestoreModal(quarantinedPhone)}
+                className="px-3.5 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+              >
+                <RotateCcw size={13} />
+                <span>खाता बहाली अनुरोध भेजें (Request Restore)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuarantinedPhone(null)}
+                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 text-xs font-semibold rounded-xl hover:bg-amber-100 transition-colors cursor-pointer"
+              >
+                बंद करें (Dismiss)
+              </button>
+            </div>
           </div>
         )}
 
@@ -549,6 +716,18 @@ export default function Login() {
                     )}
                   </button>
                 </form>
+
+                {/* Account Restoration Link */}
+                <div className="pt-2 text-center border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenRestoreModal()}
+                    className="inline-flex items-center gap-1.5 text-xs text-amber-800 hover:text-amber-950 hover:underline font-semibold cursor-pointer"
+                  >
+                    <RotateCcw size={12} className="text-amber-700" />
+                    <span>पूर्व खाता पुनर्बहाली अनुरोध (Restore Quarantined Account) &rarr;</span>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -842,6 +1021,205 @@ export default function Login() {
           </Link>
         </div>
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          RESPONSIVE MODAL: FARMER ACCOUNT RESTORATION REQUEST (DPDP Act 2023 Sec 6 & 12)
+         ───────────────────────────────────────────────────────────── */}
+      {showRestoreModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-5 sm:p-7 space-y-4 sm:space-y-5 border border-slate-200 text-left relative max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 sm:pb-4">
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shrink-0">
+                  <RotateCcw size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+                    किसान खाता पुनर्बहाली अनुरोध
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
+                    Account Restoration Petition (DPDP Act 2023 Sec 6 &amp; 12)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRestoreModal(false);
+                  setRestoreError('');
+                  setRestoreSuccessMsg('');
+                }}
+                className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                title="Close modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Statutory Law Notice */}
+            <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-3 sm:p-3.5 text-xs text-amber-900 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-amber-950">
+                <Shield size={14} className="text-amber-700 shrink-0" />
+                <span>डिजिटल व्यक्तिगत डेटा संरक्षण अधिनियम (DPDP Act 2023) वैधानिक अधिकार</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                180 दिनों की वैधानिक अवधि के दौरान खाता धारक को सहमति पुनः प्रदान (Re-consent) करने का विधिक अधिकार है। 
+                ओटीपी प्रमाणीकरण के उपरांत व्यवस्थापक (Admin) द्वारा स्वीकृति दिए जाने पर आपका खाता समस्त भूमि एवं स्वास्थ्य रिकॉर्ड सहित बहाल कर दिया जाएगा।
+              </p>
+              {restoreDaysLeft !== null && (
+                <div className="pt-1 flex items-center gap-1 text-[11px] font-bold text-amber-900">
+                  <Clock size={12} className="text-amber-700" />
+                  <span>अवशिष्ट क्वारंटाइन समयावधि: {restoreDaysLeft} दिन शेष (181वें दिन पर डेटा स्थायी रूप से नष्ट होगा)</span>
+                </div>
+              )}
+            </div>
+
+            {restoreSuccessMsg ? (
+              <div className="p-4 sm:p-5 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-3 text-center">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-600 mx-auto">
+                  <CheckCircle2 size={28} />
+                </div>
+                <h4 className="font-bold text-emerald-950 text-sm">अनुरोध सफलतापूर्वक दर्ज हुआ!</h4>
+                <p className="text-xs text-emerald-800 leading-relaxed">
+                  {restoreSuccessMsg}
+                </p>
+                <div className="p-3 bg-white/90 rounded-xl border border-emerald-100 text-[11px] text-slate-600 text-left space-y-1">
+                  <p>• <strong>स्थिति:</strong> व्यवस्थापक (Admin) सत्यापन एवं समीक्षा हेतु लंबित</p>
+                  <p>• <strong>प्रक्रिया:</strong> व्यवस्थापक द्वारा स्वीकृति मिलने पर आपको अलर्ट प्राप्त होगा।</p>
+                  <p>• स्वीकृति के उपरांत आप अपने इसी पंजीकृत मोबाइल नंबर से सामान्य लॉगिन कर सकेंगे।</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRestoreModal(false);
+                    setRestoreSuccessMsg('');
+                    setQuarantinedPhone(null);
+                  }}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                >
+                  समझ गया (Understood)
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleConfirmRestore} className="space-y-3 sm:space-y-4">
+                {restoreError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
+                    <AlertTriangle size={15} className="shrink-0 mt-0.5 text-red-600" />
+                    <span>{restoreError}</span>
+                  </div>
+                )}
+
+                {/* Phone Input / Display */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    पंजीकृत मोबाइल नंबर (Registered Mobile)
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="tel"
+                        value={quarantinedPhone || phone}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setQuarantinedPhone(val);
+                          setPhone(val);
+                        }}
+                        placeholder="10-अंकों का मोबाइल नंबर"
+                        maxLength={10}
+                        className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRequestRestoreOtp()}
+                      disabled={restoreLoading}
+                      className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-colors shrink-0 cursor-pointer shadow-xs"
+                    >
+                      {restoreLoading ? 'भेज रहे हैं...' : restoreStep === 'verify' ? 'पुनः भेजें' : 'ओटीपी भेजें'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dev Demo OTP Hint */}
+                {restoreDemoOtp && (
+                  <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-xl flex items-center justify-between text-xs text-sky-900">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Sparkles size={14} className="text-sky-600 shrink-0" />
+                      <span>डेमो सत्यापन कोड:</span>
+                      <span className="font-mono font-black text-sky-950 bg-sky-100 px-2 py-0.5 rounded border border-sky-300">
+                        {restoreDemoOtp}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRestoreOtp(restoreDemoOtp)}
+                      className="text-[11px] font-bold text-sky-700 hover:underline cursor-pointer ml-2"
+                    >
+                      ऑटोफिल
+                    </button>
+                  </div>
+                )}
+
+                {/* 6-Digit OTP Input */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    6-अंकों का सत्यापन ओटीपी (6-Digit OTP)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={restoreOtp}
+                    onChange={(e) => setRestoreOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="123456"
+                    maxLength={6}
+                    className="w-full text-center tracking-[0.4em] font-mono text-base font-bold py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                    required
+                  />
+                </div>
+
+                {/* Restoration Reason */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    खाता पुनः चालू करने का कारण (Reason for Restoration)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={restoreReason}
+                    onChange={(e) => setRestoreReason(e.target.value)}
+                    placeholder="उदा. गलती से खाता डिलीट हो गया था, कृपया पुनः चालू करें।"
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                  />
+                </div>
+
+                {/* Submit Buttons */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRestoreModal(false);
+                      setRestoreError('');
+                    }}
+                    className="w-full sm:w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
+                  >
+                    रद्द करें (Cancel)
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={restoreLoading || !restoreOtp || restoreOtp.length < 6}
+                    className="w-full sm:w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-colors shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <RotateCcw size={14} />
+                    <span>{restoreLoading ? 'जमा कर रहे हैं...' : 'बहाली अनुरोध सबमिट करें'}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────
           HELPFUL MODAL: GOOGLE OAUTH CLIENT ID CONFIGURATION GUIDE

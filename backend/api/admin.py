@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -14,6 +14,8 @@ from db.models import (
     SoilReport, AIAssessment, AssessmentType, InsurancePolicy, Claim
 )
 from api.auth import get_admin_user
+from core.network import get_client_ip, get_user_agent
+from services.account_retention_service import generate_section_63_bsa_dossier, log_audit_event
 
 router = APIRouter()
 
@@ -43,13 +45,19 @@ class BroadcastAlertRequest(BaseModel):
     severity: str = "warning"
     target_crop: Optional[str] = None
 
+class AdminTerminateFarmerRequest(BaseModel):
+    reason: Optional[str] = None
+
+class AdminRejectRestoreRequest(BaseModel):
+    reason: Optional[str] = None
+
 @router.get("/stats")
 async def get_admin_stats(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user)
 ):
-    # Total farmers count
-    farmers_res = await db.execute(select(func.count(User.id)).where(User.role == UserRole.FARMER))
+    # Total active farmers count (excluding soft-deleted / quarantined)
+    farmers_res = await db.execute(select(func.count(User.id)).where(User.role == UserRole.FARMER, User.is_deleted == False))
     total_farmers = farmers_res.scalar() or 0
 
     # Total farms & acreage
@@ -110,9 +118,10 @@ async def get_farmers(
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=1000)
 ):
+    """Returns active registered farmers."""
     stmt = (
         select(User)
-        .where(User.role == UserRole.FARMER)
+        .where(User.role == UserRole.FARMER, User.is_deleted == False)
         .options(selectinload(User.farms))
         .order_by(User.created_at.desc())
         .offset((page - 1) * page_size)
@@ -129,6 +138,9 @@ async def get_farmers(
         "role": f.role.value,
         "avatar_url": f.avatar_url,
         "is_active": True,
+        "is_deleted": False,
+        "registration_ip": f.registration_ip or "N/A",
+        "last_login_ip": f.last_login_ip or "N/A",
         "created_at": f.created_at.isoformat() if f.created_at else datetime.utcnow().isoformat(),
         "farm_count": len(f.farms),
         "total_area_ha": round(sum((farm.area_m2 or 0) for farm in f.farms) / 10000.0, 2),
@@ -136,6 +148,281 @@ async def get_farmers(
         "farm_names": [farm.name for farm in f.farms if farm.name],
         "khasra_numbers": [farm.khasra_number for farm in f.farms if farm.khasra_number]
     } for f in farmers])
+
+@router.get("/farmers/archived")
+async def get_archived_farmers(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=1000)
+):
+    """
+    Retrieves farmers in the 180-day statutory quarantine retention period (DPDP Act 2023 Sec 8(7)).
+    """
+    stmt = (
+        select(User)
+        .where(User.role == UserRole.FARMER, User.is_deleted == True)
+        .options(selectinload(User.farms))
+        .order_by(User.deleted_at.desc().nullslast())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    result = await db.execute(stmt)
+    farmers = result.scalars().all()
+    now = datetime.utcnow()
+
+    return _ok([{
+        "id": str(f.id),
+        "phone": f.phone or "N/A",
+        "email": f.email or "N/A",
+        "name": f.name or f"Farmer {f.phone[-4:] if f.phone else 'User'}",
+        "role": f.role.value,
+        "avatar_url": f.avatar_url,
+        "is_active": False,
+        "is_deleted": True,
+        "deleted_at": f.deleted_at.isoformat() if f.deleted_at else None,
+        "purge_scheduled_at": f.purge_scheduled_at.isoformat() if f.purge_scheduled_at else None,
+        "days_left": max(0, int(((f.purge_scheduled_at or now) - now).total_seconds()) // 86400) if f.purge_scheduled_at else 0,
+        "deletion_reason": f.deletion_reason or "Account quarantined under DPDP Act / IT Act 180-day retention",
+        "deleted_ip": f.deleted_ip or "N/A",
+        "registration_ip": f.registration_ip or "N/A",
+        "last_login_ip": f.last_login_ip or "N/A",
+        "farm_count": len(f.farms),
+        "total_area_ha": round(sum((farm.area_m2 or 0) for farm in f.farms) / 10000.0, 2),
+        "crops": list({farm.crop for farm in f.farms if farm.crop}),
+        "restore_requested": getattr(f, "restore_requested", False) or False,
+        "restore_requested_at": f.restore_requested_at.isoformat() if getattr(f, "restore_requested_at", None) else None,
+        "restore_reason": getattr(f, "restore_reason", None),
+        "restored_at": f.restored_at.isoformat() if getattr(f, "restored_at", None) else None
+    } for f in farmers])
+
+@router.post("/farmers/{farmer_id}/restore")
+async def admin_restore_farmer(
+    farmer_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """
+    Administrative reinstatement of a quarantined farmer account.
+    Restores full login capability and resets quarantine status.
+    Logged in forensic audit trail per DPDP Act 2023 Sec 6 and BSA 2023 Sec 63.
+    """
+    try:
+        f_uuid = uuid.UUID(farmer_id)
+    except ValueError:
+        return _error("VALIDATION_ERROR", "Invalid farmer UUID")
+
+    farmer = await db.get(User, f_uuid)
+    if not farmer or farmer.role != UserRole.FARMER:
+        return _error("FARMER_NOT_FOUND", "Farmer account not found", 404)
+
+    if not farmer.is_deleted:
+        return _error("ALREADY_ACTIVE", "This farmer account is already active and not quarantined", 400)
+
+    now = datetime.utcnow()
+    if farmer.purge_scheduled_at and farmer.purge_scheduled_at < now:
+        return _error(
+            "RETENTION_EXPIRED",
+            "The 180-day statutory retention period has expired. This account cannot be restored per DPDP Act 2023 Sec 8(7).",
+            410
+        )
+
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    saved_restore_reason = getattr(farmer, "restore_reason", None)
+
+    farmer.is_deleted = False
+    farmer.deleted_at = None
+    farmer.purge_scheduled_at = None
+    farmer.deleted_by_id = None
+    farmer.deleted_ip = None
+    farmer.deletion_reason = None
+    farmer.restore_requested = False
+    farmer.restored_at = now
+    farmer.restored_by_id = admin.id
+
+    # Create in-app notification for the farmer
+    notif = Notification(
+        user_id=farmer.id,
+        type=NotificationType.RISK_ALERT,
+        message="🎉 आपका खाता व्यवस्थापक (Admin) द्वारा विधिवत सत्यापित कर पुनः बहाल (Restored) कर दिया गया है। आप अब सामान्य रूप से लॉगिन एवं सेवाओं का उपयोग कर सकते हैं।"
+    )
+    db.add(notif)
+
+    await log_audit_event(
+        db,
+        action="ACCOUNT_RESTORED_BY_ADMIN",
+        user_id=farmer.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={
+            "restored_by": admin.email,
+            "admin_id": str(admin.id),
+            "farmer_phone": farmer.phone,
+            "restore_reason": saved_restore_reason,
+            "restored_at": now.isoformat()
+        }
+    )
+
+    await db.commit()
+
+    return _ok({
+        "success": True,
+        "account_restored": True,
+        "farmer_id": str(farmer.id),
+        "message": f"किसान '{farmer.name or farmer.phone}' का खाता सफलतापूर्वक पुनः बहाल (Restored) कर दिया गया है।"
+    })
+
+@router.post("/farmers/{farmer_id}/reject-restore")
+async def admin_reject_restore(
+    farmer_id: str,
+    req: AdminRejectRestoreRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """
+    Administrative rejection of a farmer's account restoration petition.
+    The account remains in 180-day statutory quarantine until scheduled purge date.
+    """
+    try:
+        f_uuid = uuid.UUID(farmer_id)
+    except ValueError:
+        return _error("VALIDATION_ERROR", "Invalid farmer UUID")
+
+    farmer = await db.get(User, f_uuid)
+    if not farmer or farmer.role != UserRole.FARMER:
+        return _error("FARMER_NOT_FOUND", "Farmer account not found", 404)
+
+    if not farmer.is_deleted:
+        return _error("ALREADY_ACTIVE", "This farmer account is already active", 400)
+
+    if not getattr(farmer, "restore_requested", False):
+        return _error("NO_RESTORE_REQUEST", "इस खाते के लिए कोई बहाली अनुरोध लंबित नहीं है।", 400)
+
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    rejection_reason = (req.reason or "").strip() or "Administrative decision after verification"
+
+    farmer.restore_requested = False
+
+    await log_audit_event(
+        db,
+        action="ACCOUNT_RESTORE_REJECTED_BY_ADMIN",
+        user_id=farmer.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={
+            "rejected_by": admin.email,
+            "admin_id": str(admin.id),
+            "farmer_phone": farmer.phone,
+            "rejection_reason": rejection_reason,
+            "original_restore_reason": getattr(farmer, "restore_reason", None)
+        }
+    )
+
+    await db.commit()
+
+    return _ok({
+        "success": True,
+        "restore_rejected": True,
+        "farmer_id": str(farmer.id),
+        "message": f"किसान '{farmer.name or farmer.phone}' का पुनर्बहाली अनुरोध अस्वीकार कर दिया गया है। खाता 180-दिवसीय वैधानिक क्वारंटाइन में रहेगा।"
+    })
+
+@router.post("/farmers/{farmer_id}/delete")
+async def admin_terminate_farmer(
+    farmer_id: str,
+    req: AdminTerminateFarmerRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """
+    Administrative termination of farmer account with immediate 180-day statutory quarantine.
+    Compliant with DPDP Act 2023 Sec 8(7), CERT-In Directions, and IT Rules 2021.
+    """
+    try:
+        f_uuid = uuid.UUID(farmer_id)
+    except ValueError:
+        return _error("VALIDATION_ERROR", "Invalid farmer UUID")
+
+    farmer = await db.get(User, f_uuid)
+    if not farmer or farmer.role != UserRole.FARMER:
+        return _error("FARMER_NOT_FOUND", "Farmer account not found", 404)
+
+    if farmer.is_deleted:
+        return _error("ALREADY_DELETED", "This farmer account is already in 180-day retention quarantine", 400)
+
+    now = datetime.utcnow()
+    purge_date = now + timedelta(days=180)
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
+
+    farmer.is_deleted = True
+    farmer.deleted_at = now
+    farmer.purge_scheduled_at = purge_date
+    farmer.deleted_by_id = admin.id
+    farmer.deleted_ip = client_ip
+    farmer.deletion_reason = (req.reason or "").strip() or f"Account terminated by administrator {admin.email} under platform policy"
+
+    await log_audit_event(
+        db,
+        action="ACCOUNT_TERMINATED_BY_ADMIN",
+        user_id=farmer.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={
+            "terminated_by": admin.email,
+            "admin_id": str(admin.id),
+            "farmer_phone": farmer.phone,
+            "reason": farmer.deletion_reason,
+            "purge_scheduled_at": purge_date.isoformat(),
+            "statutory_retention_days": 180
+        }
+    )
+
+    await db.commit()
+
+    return _ok({
+        "success": True,
+        "account_terminated": True,
+        "farmer_id": str(farmer.id),
+        "retention_days": 180,
+        "purge_scheduled_at": purge_date.isoformat(),
+        "message": f"किसान '{farmer.name}' का खाता सफलतापूर्वक निष्क्रिय कर 180-दिवसीय वैधानिक क्वारंटाइन में डाल दिया गया है।"
+    })
+
+@router.get("/farmers/{farmer_id}/audit-dossier")
+async def get_farmer_audit_dossier(
+    farmer_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """
+    Generates a court-admissible Forensic Audit Dossier compliant with Section 63 of 
+    Bharatiya Sakshya Adhiniyam, 2023 (BSA 2023) with cryptographic SHA-256 integrity hash.
+    """
+    try:
+        f_uuid = uuid.UUID(farmer_id)
+    except ValueError:
+        return _error("VALIDATION_ERROR", "Invalid farmer UUID")
+
+    server_ip = get_client_ip(request)
+    try:
+        dossier = await generate_section_63_bsa_dossier(
+            farmer_id=f_uuid,
+            db=db,
+            admin_user=admin,
+            server_ip=server_ip
+        )
+        return _ok(dossier)
+    except ValueError as ve:
+        return _error("FARMER_NOT_FOUND", str(ve), 404)
+    except Exception as e:
+        return _error("INTERNAL_ERROR", f"Failed to generate forensic dossier: {str(e)}", 500)
 
 @router.get("/farmers/{farmer_id}/farms")
 async def get_farmer_farms(

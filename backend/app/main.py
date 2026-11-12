@@ -110,6 +110,13 @@ async def start_periodic_farm_monitor():
     import logging
     app_logger = logging.getLogger("agrishield.main")
 
+    # Ensure all database schema upgrades (regulatory audit columns, tables) exist idempotently
+    try:
+        from db.schema_upgrade import ensure_schema_upgrades
+        await ensure_schema_upgrades()
+    except Exception as up_err:
+        app_logger.warning(f"Schema upgrade check on startup notice: {up_err}")
+
     async def periodic_worker():
         # Stagger startup by 60 seconds so initial user logins and cold-start requests get 100% CPU/bandwidth
         await asyncio.sleep(60)
@@ -149,8 +156,27 @@ async def start_periodic_farm_monitor():
                 app_logger.debug(f"AI Auto-Reconciler pass: {e}")
             await asyncio.sleep(90)
 
+    async def periodic_retention_worker():
+        # Stagger startup by 120 seconds, then runs daily (every 86,400s)
+        # Purges expired quarantined accounts past Day 180 under DPDP Act 2023 Sec 8(7)
+        await asyncio.sleep(120)
+        while True:
+            try:
+                from db.session import AsyncSessionLocal
+                from services.account_retention_service import purge_expired_quarantined_accounts
+                async with AsyncSessionLocal() as session:
+                    purged = await purge_expired_quarantined_accounts(session)
+                    if purged > 0:
+                        app_logger.info(f"Day 181 Statutory Smart Anonymization: purged PII from {purged} accounts.")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                app_logger.debug(f"Day 181 Retention worker pass: {e}")
+            await asyncio.sleep(86400)
+
     asyncio.create_task(periodic_worker())
     asyncio.create_task(periodic_ai_reconciler())
+    asyncio.create_task(periodic_retention_worker())
 
 
 @app.on_event("shutdown")

@@ -12,6 +12,7 @@ Verifies:
 """
 
 import unittest
+from unittest.mock import patch, MagicMock
 import sys
 import os
 import uuid
@@ -47,8 +48,13 @@ class TestSMSProviderAbstraction(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(res["is_development"])
         self.assertIn("स्क्रीन पर प्रदर्शित", res["message"])
 
-    async def test_production_provider_suppresses_otp_code(self):
+    @patch("httpx.AsyncClient.post")
+    async def test_production_provider_suppresses_otp_code(self, mock_post):
         """Production mode must NEVER expose otp_code in API response."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"return": True, "message": ["SMS sent successfully"]}
+        mock_post.return_value = mock_resp
         provider = ProductionSMSProvider(api_key="real_telecom_key")
         res = await provider.send_otp("+919876543210", "482910")
         self.assertTrue(res["success"])

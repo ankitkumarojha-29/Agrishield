@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -20,6 +20,7 @@ from db.session import get_db
 from db.models import User, UserRole, Notification, NotificationType
 from core.security import create_access_token, verify_password, get_password_hash, decode_access_token
 from core.config import settings
+from core.network import get_client_ip, get_user_agent
 from core.validators import (
     validate_indian_phone,
     validate_person_name,
@@ -28,6 +29,7 @@ from core.validators import (
 )
 from services.farm_monitor_service import notify_admins
 from services.sms_service import get_sms_provider
+from services.account_retention_service import log_audit_event
 from services.google_auth_service import (
     verify_google_id_token,
     create_linking_ticket,
@@ -42,6 +44,8 @@ router = APIRouter()
 # In-memory OTP storage with TTL and rate limiting
 # phone -> {"otp": str, "expires_at": datetime, "last_sent_at": datetime}
 OTP_STORE: Dict[str, dict] = {}
+DELETE_OTP_STORE: Dict[str, dict] = {}
+RESTORE_OTP_STORE: Dict[str, dict] = {}
 
 
 def _format_iso_utc(dt: Optional[datetime]) -> Optional[str]:
@@ -96,6 +100,18 @@ class GoogleLinkPhoneRequest(BaseModel):
     otp: str
     name: Optional[str] = None
 
+class ConfirmDeleteAccountRequest(BaseModel):
+    otp: str
+    reason: Optional[str] = None
+
+class RequestAccountRestoreOtpRequest(BaseModel):
+    phone: str
+
+class ConfirmAccountRestoreRequest(BaseModel):
+    phone: str
+    otp: str
+    reason: Optional[str] = None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SECTION: ENVELOPE AND ERROR HELPERS
@@ -146,13 +162,20 @@ async def get_current_user(authorization: str = Header(None), db: AsyncSession =
     if not user:
         _error("AUTH_REQUIRED", "Authenticated user record no longer exists", 401)
         
+    if getattr(user, "is_deleted", False):
+        _error(
+            "ACCOUNT_DELETED",
+            "यह खाता 180 दिनों के वैधानिक ऑडिट हेतु सुरक्षित एवं निष्क्रिय है। (This account has been deleted and is quarantined for 180-day statutory audit under Indian law).",
+            403
+        )
+        
     return user
 
 
 async def get_optional_current_user(authorization: str = Header(None), db: AsyncSession = Depends(get_db)) -> Optional[User]:
     """
     Optionally extracts and authenticates user if Bearer header is present.
-    Returns None if header is missing or token is invalid.
+    Returns None if header is missing or token is invalid or account is deleted.
     """
     if not authorization or not authorization.startswith("Bearer "):
         return None
@@ -160,7 +183,10 @@ async def get_optional_current_user(authorization: str = Header(None), db: Async
     try:
         user_id_str = decode_access_token(token)
         uid = uuid.UUID(user_id_str)
-        return await db.get(User, uid)
+        u = await db.get(User, uid)
+        if u and getattr(u, "is_deleted", False):
+            return None
+        return u
     except Exception:
         return None
 
@@ -224,10 +250,11 @@ async def send_otp(req: SendOtpRequest):
 
 
 @router.post("/verify-otp")
-async def verify_otp(req: VerifyOtpRequest, db: AsyncSession = Depends(get_db)):
+async def verify_otp(req: VerifyOtpRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Verifies 6-digit mobile OTP code and logs in or registers the farmer.
     Enforces name validation if farmer provides a name.
+    Records client IP and security audit log per CERT-In directives.
     """
     is_valid_phone, phone_normalized, phone_err = validate_indian_phone(req.phone)
     if not is_valid_phone:
@@ -262,11 +289,28 @@ async def verify_otp(req: VerifyOtpRequest, db: AsyncSession = Depends(get_db)):
     # OTP is verified. Register or log in farmer
     result = await db.execute(select(User).where(User.phone == phone_normalized))
     user = result.scalar_one_or_none()
+    
+    if user and getattr(user, "is_deleted", False):
+        _error(
+            "ACCOUNT_DELETED",
+            "यह खाता 180 दिनों के वैधानिक ऑडिट हेतु सुरक्षित एवं निष्क्रिय है। (This account has been deleted and is quarantined for 180-day statutory audit under Indian law).",
+            403
+        )
+
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
     is_new_user = False
     
     if not user:
         farmer_name = farmer_name_clean or f"Farmer {phone_normalized[-4:]}"
-        user = User(phone=phone_normalized, name=farmer_name, role=UserRole.FARMER, is_approved=True)
+        user = User(
+            phone=phone_normalized,
+            name=farmer_name,
+            role=UserRole.FARMER,
+            is_approved=True,
+            registration_ip=client_ip,
+            last_login_ip=client_ip
+        )
         db.add(user)
         await db.flush()
         is_new_user = True
@@ -286,10 +330,20 @@ async def verify_otp(req: VerifyOtpRequest, db: AsyncSession = Depends(get_db)):
             ref_id=user.id
         )
     else:
+        user.last_login_ip = client_ip
         if farmer_name_clean:
             user.name = farmer_name_clean
-            await db.commit()
-            await db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
+
+    await log_audit_event(
+        db,
+        action="FARMER_REGISTRATION" if is_new_user else "FARMER_LOGIN_OTP",
+        user_id=user.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={"phone": phone_normalized, "is_new_user": is_new_user}
+    )
             
     access_token = create_access_token(str(user.id))
     OTP_STORE.pop(phone_normalized, None)
@@ -314,7 +368,7 @@ async def verify_otp(req: VerifyOtpRequest, db: AsyncSession = Depends(get_db)):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/google")
-async def google_auth(req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+async def google_auth(req: GoogleAuthRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Authenticates farmer using Google OAuth ID token (GIS).
     Resolves stable Google sub to existing farmer account.
@@ -334,7 +388,21 @@ async def google_auth(req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)
     user = result.scalar_one_or_none()
 
     if user:
-        # Existing linked farmer found! Open the exact same account.
+        if getattr(user, "is_deleted", False):
+            _error("ACCOUNT_DELETED", "यह खाता 180 दिनों के वैधानिक ऑडिट हेतु सुरक्षित एवं निष्क्रिय है। (This account has been deleted and is quarantined for 180-day statutory audit under Indian law).", 403)
+        
+        client_ip = get_client_ip(request)
+        user.last_login_ip = client_ip
+        await db.commit()
+        await log_audit_event(
+            db,
+            action="FARMER_LOGIN_GOOGLE",
+            user_id=user.id,
+            ip_address=client_ip,
+            user_agent=get_user_agent(request),
+            details={"google_id": google_id, "email": email}
+        )
+
         access_token = create_access_token(str(user.id))
         return _ok({
             "status": "AUTHENTICATED",
@@ -367,7 +435,7 @@ async def google_auth(req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/google/link-phone")
-async def google_link_phone(req: GoogleLinkPhoneRequest, db: AsyncSession = Depends(get_db)):
+async def google_link_phone(req: GoogleLinkPhoneRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Links verified Google profile to farmer's mobile account (Flow C).
     Verifies the linking ticket and mobile OTP before binding the identities.
@@ -414,16 +482,22 @@ async def google_link_phone(req: GoogleLinkPhoneRequest, db: AsyncSession = Depe
     res_phone = await db.execute(select(User).where(User.phone == phone_normalized))
     existing_by_phone = res_phone.scalar_one_or_none()
 
+    if existing_by_phone and getattr(existing_by_phone, "is_deleted", False):
+        _error("ACCOUNT_DELETED", "यह खाता 180 दिनों के वैधानिक ऑडिट हेतु सुरक्षित एवं निष्क्रिय है। (This account has been deleted and is quarantined for 180-day statutory audit under Indian law).", 403)
+
     if existing_by_google and existing_by_phone and existing_by_google.id != existing_by_phone.id:
         _error("CONFLICT", "This Google account is already linked to a different farmer profile.", 409)
 
     user = existing_by_phone or existing_by_google
     is_new_user = False
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
 
     if existing_by_phone:
         # Existing farmer found! Safely bind the Google identity to this permanent account
         user = existing_by_phone
         user.google_id = google_id
+        user.last_login_ip = client_ip
         if google_email and not user.email:
             user.email = google_email
         if google_avatar and not user.avatar_url:
@@ -455,7 +529,9 @@ async def google_link_phone(req: GoogleLinkPhoneRequest, db: AsyncSession = Depe
             name=clean_name,
             avatar_url=google_avatar,
             role=UserRole.FARMER,
-            is_approved=True
+            is_approved=True,
+            registration_ip=client_ip,
+            last_login_ip=client_ip
         )
         db.add(user)
         await db.flush()
@@ -469,6 +545,15 @@ async def google_link_phone(req: GoogleLinkPhoneRequest, db: AsyncSession = Depe
         db.add(welcome_notif)
         await db.commit()
         await db.refresh(user)
+
+    await log_audit_event(
+        db,
+        action="FARMER_REGISTRATION_GOOGLE_LINK" if is_new_user else "FARMER_GOOGLE_PHONE_LINK",
+        user_id=user.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={"phone": phone_normalized, "google_id": google_id, "is_new_user": is_new_user}
+    )
 
     access_token = create_access_token(str(user.id))
     OTP_STORE.pop(phone_normalized, None)
@@ -562,7 +647,7 @@ async def unlink_google_account(
 
 
 @router.post("/register-or-login")
-async def register_or_login(req: RegisterOrLoginRequest, db: AsyncSession = Depends(get_db)):
+async def register_or_login(req: RegisterOrLoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Direct farmer register-or-login endpoint.
     Applies strict phone normalization and name validation.
@@ -581,10 +666,27 @@ async def register_or_login(req: RegisterOrLoginRequest, db: AsyncSession = Depe
     result = await db.execute(select(User).where(User.phone == phone_normalized))
     user = result.scalar_one_or_none()
     
+    if user and getattr(user, "is_deleted", False):
+        _error(
+            "ACCOUNT_DELETED",
+            "यह खाता 180 दिनों के वैधानिक ऑडिट हेतु सुरक्षित एवं निष्क्रिय है। (This account has been deleted and is quarantined for 180-day statutory audit under Indian law).",
+            403
+        )
+
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
     is_new_user = False
+
     if not user:
         farmer_name = farmer_name_clean or f"Farmer {phone_normalized[-4:]}"
-        user = User(phone=phone_normalized, name=farmer_name, role=UserRole.FARMER, is_approved=True)
+        user = User(
+            phone=phone_normalized,
+            name=farmer_name,
+            role=UserRole.FARMER,
+            is_approved=True,
+            registration_ip=client_ip,
+            last_login_ip=client_ip
+        )
         db.add(user)
         await db.flush()
         is_new_user = True
@@ -604,6 +706,7 @@ async def register_or_login(req: RegisterOrLoginRequest, db: AsyncSession = Depe
             ref_id=user.id
         )
     else:
+        user.last_login_ip = client_ip
         if farmer_name_clean:
             user.name = farmer_name_clean
             await db.commit()
@@ -612,6 +715,17 @@ async def register_or_login(req: RegisterOrLoginRequest, db: AsyncSession = Depe
             user.name = f"Farmer {user.phone[-4:]}" if user.phone and len(user.phone) >= 4 else "Farmer"
             await db.commit()
             await db.refresh(user)
+        else:
+            await db.commit()
+
+    await log_audit_event(
+        db,
+        action="FARMER_REGISTRATION_DIRECT" if is_new_user else "FARMER_LOGIN_DIRECT",
+        user_id=user.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={"phone": phone_normalized, "is_new_user": is_new_user}
+    )
         
     user_id_str = str(user.id)
     access_token = create_access_token(user_id_str)
@@ -634,7 +748,7 @@ async def register_or_login(req: RegisterOrLoginRequest, db: AsyncSession = Depe
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/login")
-async def admin_login(req: AdminLoginRequest, db: AsyncSession = Depends(get_db)):
+async def admin_login(req: AdminLoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Administrator email/password login.
     Checks password hash and 7-day administrative approval state.
@@ -657,6 +771,9 @@ async def admin_login(req: AdminLoginRequest, db: AsyncSession = Depends(get_db)
         
     if not verify_password(req.password, user.hashed_password):
         _error("AUTH_FAILED", "Invalid email or password", 401)
+
+    if getattr(user, "is_deleted", False):
+        _error("ACCOUNT_DELETED", "यह व्यवस्थापक खाता निष्क्रिय कर दिया गया है। (This administrator account has been deactivated).", 403)
         
     # Check if admin is approved
     if user.role == UserRole.ADMIN and not user.is_approved:
@@ -683,6 +800,20 @@ async def admin_login(req: AdminLoginRequest, db: AsyncSession = Depends(get_db)
             403
         )
         
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    user.last_login_ip = client_ip
+    await db.commit()
+
+    await log_audit_event(
+        db,
+        action="ADMIN_LOGIN_SUCCESS",
+        user_id=user.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={"email": user.email}
+    )
+
     access_token = create_access_token(str(user.id))
     return _ok({
         "user": {
@@ -969,4 +1100,262 @@ async def update_me(req: UpdateProfileRequest, db: AsyncSession = Depends(get_db
         "id": str(current_user.id),
         "name": current_user.name,
         "avatar_url": current_user.avatar_url
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION: STATUTORY ACCOUNT DELETION & QUARANTINE (DPDP ACT 2023 / CERT-IN)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/delete-account/request-otp")
+async def request_delete_account_otp(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Step 1: Issues a 6-digit confirmation OTP to authenticated farmer's registered phone
+    before initiating 180-day statutory quarantine deletion under DPDP Act 2023 Sec 8(7).
+    """
+    if current_user.role != UserRole.FARMER:
+        _error("FORBIDDEN", "Only farmer accounts can request self-deletion. Admins must be revoked via console.", 403)
+    
+    if not current_user.phone:
+        _error("VALIDATION_ERROR", "No registered mobile phone found for this account to dispatch verification OTP.")
+        
+    now = datetime.utcnow()
+    user_key = str(current_user.id)
+    stored = DELETE_OTP_STORE.get(user_key)
+    if stored and "last_sent_at" in stored:
+        elapsed = (now - stored["last_sent_at"]).total_seconds()
+        if elapsed < 20:
+            _error("RATE_LIMITED", f"Please wait {int(20 - elapsed)} seconds before requesting a new deletion OTP", 429)
+
+    otp_code = f"{secrets.randbelow(900000) + 100000}"
+    DELETE_OTP_STORE[user_key] = {
+        "otp": otp_code,
+        "expires_at": now + timedelta(minutes=5),
+        "last_sent_at": now
+    }
+
+    sms_provider = get_sms_provider()
+    dispatch_res = await sms_provider.send_otp(current_user.phone, otp_code)
+
+    return _ok({
+        "phone": current_user.phone,
+        "otp_sent": dispatch_res.get("success", True),
+        "message": f"खाता विलोपन सत्यापन कोड (Deletion OTP) {current_user.phone} पर भेज दिया गया है। 180 दिनों की वैधानिक सुरक्षा लागू होगी।",
+        "otp_code": dispatch_res.get("otp_code"),  # Provided in free dev/demo mode
+        "retention_period_days": 180,
+        "governing_law": "Digital Personal Data Protection Act, 2023 (DPDP Act, Sec 8(7)) & CERT-In Directives"
+    })
+
+
+@router.post("/delete-account/confirm")
+async def confirm_delete_account(
+    req: ConfirmDeleteAccountRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Step 2: Verifies 6-digit OTP and places farmer account into 180-Day Statutory Quarantine.
+    Immediate Effects:
+      1. Immediate revocation of login / API access.
+      2. User record marked is_deleted=True, purge_scheduled_at = now + 180 days.
+      3. Client IP, User-Agent, and reason stored in immutable AuditLog.
+      4. Anonymized spatial boundaries and satellite telemetry preserved for ML.
+    """
+    if current_user.role != UserRole.FARMER:
+        _error("FORBIDDEN", "Only farmer accounts can execute self-deletion.", 403)
+
+    user_key = str(current_user.id)
+    stored = DELETE_OTP_STORE.get(user_key)
+    now = datetime.utcnow()
+    input_otp = req.otp.strip() if req.otp else ""
+    is_dev_mode = (settings.OTP_MODE or "development").strip().lower() != "production"
+
+    is_valid = False
+    if is_dev_mode and input_otp == "123456":
+        is_valid = True
+    elif stored and stored["expires_at"] > now and stored["otp"] == input_otp:
+        is_valid = True
+
+    if not is_valid:
+        _error("INVALID_OTP", "The verification code is incorrect or expired. Please request a new code.", 400)
+
+    # Consume OTP
+    DELETE_OTP_STORE.pop(user_key, None)
+
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    purge_date = now + timedelta(days=180)
+
+    current_user.is_deleted = True
+    current_user.deleted_at = now
+    current_user.purge_scheduled_at = purge_date
+    current_user.deleted_by_id = current_user.id
+    current_user.deleted_ip = client_ip
+    current_user.deletion_reason = (req.reason or "").strip() or "Self-requested deletion by farmer under DPDP Act 2023 Sec 12"
+
+    await log_audit_event(
+        db,
+        action="ACCOUNT_DELETED_BY_FARMER",
+        user_id=current_user.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={
+            "phone": current_user.phone,
+            "deletion_reason": current_user.deletion_reason,
+            "purge_scheduled_at": purge_date.isoformat(),
+            "statutory_retention_days": 180
+        }
+    )
+
+    await db.commit()
+
+    return _ok({
+        "account_deleted": True,
+        "is_quarantined": True,
+        "retention_days": 180,
+        "purge_scheduled_at": purge_date.isoformat(),
+        "message": (
+            "आपका खाता सफलतापूर्वक निष्क्रिय कर दिया गया है। भारतीय कानून (DPDP Act 2023 एवं CERT-In) के "
+            "अनुसार वित्तीय एवं भूमि सुरक्षा ऑडिट हेतु यह डेटा 180 दिनों तक सुरक्षित क्वारंटाइन में रहेगा, "
+            "जिसके पश्चात PII डेटा स्थायी रूप से नष्ट कर दिया जाएगा।"
+        )
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION: STATUTORY ACCOUNT RESTORATION PETITION (DPDP ACT 2023 SEC 6 RE-CONSENT)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/restore-account/request-otp")
+async def request_account_restore_otp(
+    req: RequestAccountRestoreOtpRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Step 1: Issues a 6-digit confirmation OTP to verify phone ownership
+    before requesting account restoration from 180-day quarantine.
+    """
+    is_valid_phone, phone_normalized, phone_err = validate_indian_phone(req.phone)
+    if not is_valid_phone:
+        _error("VALIDATION_ERROR", phone_err or "Invalid mobile phone number")
+
+    result = await db.execute(select(User).where(User.phone == phone_normalized))
+    user = result.scalar_one_or_none()
+    if not user:
+        _error("NOT_FOUND", "No account found with this mobile phone number.", 404)
+
+    if not user.is_deleted:
+        _error("ALREADY_ACTIVE", "This account is already active. Please proceed to regular login.", 400)
+
+    now = datetime.utcnow()
+    if user.purge_scheduled_at and user.purge_scheduled_at < now:
+        _error(
+            "RETENTION_EXPIRED",
+            "The 180-day statutory retention period has expired and this account has been purged per DPDP Act 2023 Sec 8(7). Please register as a new user.",
+            410
+        )
+
+    stored = RESTORE_OTP_STORE.get(phone_normalized)
+    if stored and "last_sent_at" in stored:
+        elapsed = (now - stored["last_sent_at"]).total_seconds()
+        if elapsed < 20:
+            _error("RATE_LIMITED", f"Please wait {int(20 - elapsed)} seconds before requesting a new restore code", 429)
+
+    otp_code = f"{secrets.randbelow(900000) + 100000}"
+    RESTORE_OTP_STORE[phone_normalized] = {
+        "otp": otp_code,
+        "expires_at": now + timedelta(minutes=5),
+        "last_sent_at": now
+    }
+
+    sms_provider = get_sms_provider()
+    dispatch_res = await sms_provider.send_otp(phone_normalized, otp_code)
+
+    days_remaining = max(0, int(((user.purge_scheduled_at or now) - now).total_seconds()) // 86400) if user.purge_scheduled_at else 0
+
+    return _ok({
+        "phone": phone_normalized,
+        "otp_sent": dispatch_res.get("success", True),
+        "message": f"खाता पुनर्बहाली सत्यापन कोड {phone_normalized} पर भेज दिया गया है।",
+        "otp_code": dispatch_res.get("otp_code"),  # Provided in free dev/demo mode
+        "days_left": days_remaining,
+        "is_quarantined": True
+    })
+
+
+@router.post("/restore-account/confirm")
+async def confirm_account_restore(
+    req: ConfirmAccountRestoreRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Step 2: Verifies 6-digit OTP and submits an administrative restoration petition.
+    Sets restore_requested = True and logs immutable audit event for admin review.
+    """
+    is_valid_phone, phone_normalized, phone_err = validate_indian_phone(req.phone)
+    if not is_valid_phone:
+        _error("VALIDATION_ERROR", phone_err or "Invalid mobile phone number")
+
+    result = await db.execute(select(User).where(User.phone == phone_normalized))
+    user = result.scalar_one_or_none()
+    if not user:
+        _error("NOT_FOUND", "Account not found.", 404)
+
+    if not user.is_deleted:
+        _error("ALREADY_ACTIVE", "Account is already active.", 400)
+
+    now = datetime.utcnow()
+    if user.purge_scheduled_at and user.purge_scheduled_at < now:
+        _error("RETENTION_EXPIRED", "The 180-day statutory retention period has expired.", 410)
+
+    input_otp = req.otp.strip() if req.otp else ""
+    stored = RESTORE_OTP_STORE.get(phone_normalized)
+    is_dev_mode = (settings.OTP_MODE or "development").strip().lower() != "production"
+
+    is_valid = False
+    if is_dev_mode and input_otp == "123456":
+        is_valid = True
+    elif stored and stored["expires_at"] > now and stored["otp"] == input_otp:
+        is_valid = True
+
+    if not is_valid:
+        _error("INVALID_OTP", "The verification code is incorrect or expired. Please request a new code.", 400)
+
+    RESTORE_OTP_STORE.pop(phone_normalized, None)
+
+    client_ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
+
+    user.restore_requested = True
+    user.restore_requested_at = now
+    user.restore_reason = (req.reason or "").strip() or "Farmer requested account restoration within 180-day statutory quarantine window"
+
+    await log_audit_event(
+        db,
+        action="ACCOUNT_RESTORE_REQUESTED_BY_FARMER",
+        user_id=user.id,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        details={
+            "phone": user.phone,
+            "restore_reason": user.restore_reason,
+            "requested_at": now.isoformat()
+        }
+    )
+
+    await db.commit()
+
+    return _ok({
+        "restore_requested": True,
+        "status": "AWAITING_ADMIN_APPROVAL",
+        "message": (
+            "आपका खाता पुनर्बहाली अनुरोध सफलतापूर्वक दर्ज कर लिया गया है। "
+            "सुरक्षा एवं कानूनी समीक्षा के उपरांत व्यवस्थापक (Admin) द्वारा इसे अनुमोदित किया जाएगा।"
+        )
     })

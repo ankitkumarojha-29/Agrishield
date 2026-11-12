@@ -14,6 +14,9 @@ interface RoleContextType {
   toggleRole: () => Promise<void>;
   setAvatarUrl: (url: string) => void;
   loadingRoleSwitch: boolean;
+  sessionRemainingSeconds: number | null;
+  resetFarmerTimer: () => void;
+  logout: () => void;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
@@ -43,6 +46,102 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [loadingRoleSwitch] = useState(false);
+
+  const [sessionRemainingSeconds, setSessionRemainingSeconds] = useState<number | null>(() => {
+    const savedRole = localStorage.getItem('user_role');
+    const token = localStorage.getItem('access_token');
+    if (savedRole === 'admin' || savedRole === 'ADMIN' || !token) {
+      return null;
+    }
+    const expStr = localStorage.getItem('farmer_session_expires_at');
+    if (!expStr) {
+      const expiresAt = Date.now() + 30 * 60 * 1000;
+      localStorage.setItem('farmer_session_expires_at', expiresAt.toString());
+      return 30 * 60;
+    }
+    const exp = parseInt(expStr, 10);
+    return Math.max(0, Math.floor((exp - Date.now()) / 1000));
+  });
+
+  const resetFarmerTimer = () => {
+    if (role === 'farmer' && localStorage.getItem('access_token')) {
+      const expiresAt = Date.now() + 30 * 60 * 1000;
+      localStorage.setItem('farmer_session_expires_at', expiresAt.toString());
+      setSessionRemainingSeconds(30 * 60);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_role');
+    localStorage.removeItem('farmer_session_expires_at');
+    localStorage.removeItem('farmer_phone');
+    localStorage.removeItem('farmer_name');
+    sessionStorage.removeItem('agrishield_cached_coords');
+    sessionStorage.removeItem('agrishield_cached_locname');
+    sessionStorage.removeItem('agrishield_cached_satellite');
+    api.invalidateCache();
+    setSessionRemainingSeconds(null);
+    window.location.href = '/login';
+  };
+
+  // 30-Minute Auto Logout Countdown Timer for Farmers (No timer for Admin)
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (role !== 'farmer' || !token) {
+      setSessionRemainingSeconds(null);
+      localStorage.removeItem('farmer_session_expires_at');
+      return;
+    }
+
+    let expStr = localStorage.getItem('farmer_session_expires_at');
+    if (!expStr) {
+      const initialExpiry = Date.now() + 30 * 60 * 1000;
+      localStorage.setItem('farmer_session_expires_at', initialExpiry.toString());
+      expStr = initialExpiry.toString();
+    }
+
+    const checkTimer = () => {
+      const currentToken = localStorage.getItem('access_token');
+      const currentRole = localStorage.getItem('user_role');
+      if (!currentToken || currentRole === 'admin' || currentRole === 'ADMIN') {
+        setSessionRemainingSeconds(null);
+        return;
+      }
+
+      const currentExpStr = localStorage.getItem('farmer_session_expires_at');
+      if (!currentExpStr) {
+        const newExpiry = Date.now() + 30 * 60 * 1000;
+        localStorage.setItem('farmer_session_expires_at', newExpiry.toString());
+        setSessionRemainingSeconds(30 * 60);
+        return;
+      }
+
+      const expTime = parseInt(currentExpStr, 10);
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((expTime - now) / 1000));
+
+      if (remaining <= 0) {
+        // Automatic logout on 00:00!
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('farmer_session_expires_at');
+        localStorage.removeItem('farmer_phone');
+        localStorage.removeItem('farmer_name');
+        sessionStorage.removeItem('agrishield_cached_coords');
+        sessionStorage.removeItem('agrishield_cached_locname');
+        sessionStorage.removeItem('agrishield_cached_satellite');
+        api.invalidateCache();
+        setSessionRemainingSeconds(0);
+        window.location.href = '/login?session_expired=true';
+      } else {
+        setSessionRemainingSeconds(remaining);
+      }
+    };
+
+    checkTimer();
+    const intervalId = setInterval(checkTimer, 1000);
+    return () => clearInterval(intervalId);
+  }, [role]);
 
   const setAvatarUrl = (url: string) => {
     const validUrl = (url && !url.includes('TEST_')) ? url : DEFAULT_AVATAR;
@@ -141,7 +240,10 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       setRole: switchRole,
       toggleRole,
       setAvatarUrl,
-      loadingRoleSwitch
+      loadingRoleSwitch,
+      sessionRemainingSeconds,
+      resetFarmerTimer,
+      logout
     }}>
       {children}
     </RoleContext.Provider>

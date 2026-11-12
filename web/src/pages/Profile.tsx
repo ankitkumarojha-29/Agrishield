@@ -8,7 +8,11 @@ import {
   Languages,
   Sprout,
   Shield,
-  AlertTriangle
+  AlertTriangle,
+  Trash2,
+  Key,
+  Info,
+  X
 } from 'lucide-react';
 import { api, type Farm } from '../api';
 import { useUserRole, DEFAULT_AVATAR } from '../context/RoleContext';
@@ -36,6 +40,66 @@ export default function Profile() {
   const [googleUnlinkLoading, setGoogleUnlinkLoading] = useState(false);
   const [isGoogleLinkRendered, setIsGoogleLinkRendered] = useState(false);
   const googleLinkBtnRef = useRef<HTMLDivElement>(null);
+
+  // Farmer Account Deletion modal & OTP state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteOtp, setDeleteOtp] = useState('');
+  const [deleteOtpSent, setDeleteOtpSent] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteDevOtp, setDeleteDevOtp] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccessMsg, setDeleteSuccessMsg] = useState<string | null>(null);
+
+  const handleRequestDeleteOtp = async () => {
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      const res = await api.requestAccountDeletionOtp();
+      if (res.success && res.data) {
+        setDeleteOtpSent(true);
+        if (res.data.otp_code) {
+          setDeleteDevOtp(res.data.otp_code);
+          setDeleteOtp(res.data.otp_code);
+        }
+      } else {
+        setDeleteError(res?.error?.message || 'OTP अनुरोध विफल रहा');
+      }
+    } catch (err: any) {
+      setDeleteError(err.response?.data?.error?.message || err.message || 'OTP अनुरोध में समस्या आई');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteOtp || deleteOtp.trim().length !== 6) {
+      setDeleteError('कृपया 6 अंकों का सही OTP कोड दर्ज करें');
+      return;
+    }
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      const res = await api.confirmAccountDeletion(deleteOtp.trim(), deleteReason.trim());
+      if (res.success && res.data) {
+        setDeleteSuccessMsg(res.data.message || 'खाता 180-दिवसीय वैधानिक क्वारंटाइन में डाल दिया गया है।');
+        setTimeout(() => {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('user_role');
+          localStorage.removeItem('farmer_session_expires_at');
+          localStorage.removeItem('farmer_phone');
+          localStorage.removeItem('farmer_name');
+          window.location.href = '/login?deleted=true';
+        }, 3500);
+      } else {
+        setDeleteError(res?.error?.message || 'खाता विलोपन असफल रहा');
+      }
+    } catch (err: any) {
+      setDeleteError(err.response?.data?.error?.message || err.message || 'खाता विलोपन में त्रुटि आई');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadUserProfile();
@@ -511,8 +575,184 @@ export default function Profile() {
               )}
             </div>
           )}
+
+          {/* Account Deletion & Statutory Quarantine Section (Farmer Only) */}
+          {role === 'farmer' && (
+            <div className="bg-rose-50/40 border border-rose-200/80 rounded-3xl p-5 md:p-6 shadow-xs space-y-4">
+              <div className="flex items-start md:items-center justify-between gap-3 border-b border-rose-100 pb-3">
+                <div className="flex items-center gap-2 text-rose-800">
+                  <Trash2 size={18} className="text-rose-600 shrink-0" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                    खाता प्रबंधन एवं वैधानिक विलोपन (Account Deletion & Governance)
+                  </h3>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 shrink-0 border border-rose-200">
+                  DPDP Act 2023
+                </span>
+              </div>
+
+              <div className="text-xs text-slate-600 space-y-2 leading-relaxed">
+                <p>
+                  यदि आप AgriShield पर अपना खाता हटाना चाहते हैं, तो भारतीय डिजिटल व्यक्तिगत डेटा संरक्षण अधिनियम (DPDP Act, 2023 धारा 8(7)) एवं CERT-In साइबर सुरक्षा निर्देशों के अनुसार आपका लॉगिन तुरंत बंद कर दिया जाएगा एवं खाता <strong>180 दिनों के वैधानिक क्वारंटाइन</strong> में सुरक्षित रहेगा।
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  180 दिनों की अवधि समाप्त होने पर आपका व्यक्तिगत पहचान डेटा (PII) स्थायी रूप से नष्ट कर दिया जाएगा, जबकि अनाम उपग्रह व फसल रिकॉर्ड एआई मॉडल प्रशिक्षण हेतु सुरक्षित रहेंगे।
+                </p>
+              </div>
+
+              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                  <Info size={14} className="text-slate-400 shrink-0" />
+                  <span>शिकायत निवारण: grievance@agrishield.in</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteModal(true);
+                    setDeleteError(null);
+                    setDeleteSuccessMsg(null);
+                  }}
+                  className="px-4 py-2 bg-white hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-300 hover:border-rose-600 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Trash2 size={14} />
+                  <span>खाता विलोपन का अनुरोध करें (Delete Account)</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Account Deletion Confirmation & Statutory OTP Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 my-8">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5 text-rose-700">
+                <div className="p-2 rounded-xl bg-rose-100 text-rose-700">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    खाता विलोपन एवं 180-दिवसीय क्वारंटाइन
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Statutory Account Deletion under DPDP Act 2023 Sec 8(7)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!deleteLoading) setShowDeleteModal(false);
+                }}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {deleteSuccessMsg ? (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-2">
+                <CheckCircle2 size={32} className="text-emerald-600 mx-auto" />
+                <h4 className="text-sm font-bold text-emerald-900">खाता सफलतापूर्वक निष्क्रिय हुआ</h4>
+                <p className="text-xs text-emerald-800 leading-relaxed">{deleteSuccessMsg}</p>
+                <p className="text-[11px] text-emerald-600 pt-2 font-medium">आपको लॉगिन स्क्रीन पर पुनः निर्देशित किया जा रहा है...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-900 space-y-1.5 leading-relaxed">
+                  <p className="font-bold flex items-center gap-1.5 text-amber-950">
+                    <Info size={14} className="text-amber-700 shrink-0" />
+                    <span>वैधानिक सुरक्षा सूचना (Legal Statutory Notice):</span>
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-[11px] text-amber-800">
+                    <li>आपका लॉगिन और ऐप एक्सेस तुरंत बंद कर दिया जाएगा।</li>
+                    <li>वित्तीय व भूमि रिकॉर्ड्स को 180 दिनों तक वैधानिक ऑडिट क्वारंटाइन में सुरक्षित रखा जाएगा।</li>
+                    <li>180 दिनों के पश्चात व्यक्तिगत डेटा (फोन, नाम) स्थायी रूप से मिटा दिया जाएगा।</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    विलोपन का कारण (Reason for Deletion - Optional):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                    placeholder="जैसे: खेती का प्रकार बदल गया, सेवा की आवश्यकता नहीं है, आदि..."
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-hidden"
+                  />
+                </div>
+
+                {deleteError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
+                    ⚠️ {deleteError}
+                  </div>
+                )}
+
+                {!deleteOtpSent ? (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleRequestDeleteOtp}
+                      disabled={deleteLoading}
+                      className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <Key size={14} />
+                      <span>{deleteLoading ? 'सत्यापन कोड भेज रहे हैं...' : 'सुरक्षा कोड (OTP) भेजें और आगे बढ़ें'}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 pt-1 border-t border-slate-100">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-800">
+                          6 अंकों का सुरक्षा OTP दर्ज करें:
+                        </label>
+                        {deleteDevOtp && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            डेमो कोड: {deleteDevOtp}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={deleteOtp}
+                        onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, ''))}
+                        placeholder="123456"
+                        className="w-full text-center text-lg tracking-widest font-mono font-bold p-2.5 rounded-xl border border-slate-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-hidden"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteModal(false)}
+                        disabled={deleteLoading}
+                        className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      >
+                        रद्द करें (Cancel)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmDelete}
+                        disabled={deleteLoading || deleteOtp.length !== 6}
+                        className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <Trash2 size={14} />
+                        <span>{deleteLoading ? 'सत्यापित कर रहे हैं...' : 'पुष्टि करें और खाता हटाएं'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

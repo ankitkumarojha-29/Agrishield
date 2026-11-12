@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, User, LogOut, CheckCircle2, AlertTriangle, Shield, Sprout, Menu, Trash2, Check } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Search, Bell, User, LogOut, CheckCircle2, AlertTriangle, Shield, Sprout, Menu, Trash2, Check, Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useUserRole, DEFAULT_AVATAR } from '../context/RoleContext';
 import { api } from '../api';
 import { formatFullNotificationTimestamp, formatRelativeDuration } from '../utils/dateUtils';
@@ -14,8 +14,14 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
-  const { role, userName, avatarUrl } = useUserRole();
-  const navigate = useNavigate();
+  const { role, userName, avatarUrl, sessionRemainingSeconds, resetFarmerTimer, logout } = useUserRole();
+
+  const formatSessionCountdown = (totalSeconds: number | null) => {
+    if (totalSeconds === null || totalSeconds < 0) return null;
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const [notifications, setNotifications] = useState<any[]>([]);
 
@@ -164,6 +170,29 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
             </>
           )}
         </div>
+
+        {/* 30-Minute Auto-Logout Countdown Timer (Farmer Only - Responsive) */}
+        {role === 'farmer' && sessionRemainingSeconds !== null && (
+          <div 
+            onClick={resetFarmerTimer}
+            title="किसान सत्र सुरक्षा: 30 मिनट में स्वतः लॉगआउट (क्लिक करके समय रीसेट करें / Click to refresh timer)"
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-mono font-bold border transition-all cursor-pointer shadow-2xs select-none ${
+              sessionRemainingSeconds <= 60
+                ? 'bg-rose-50 text-rose-700 border-rose-300 animate-pulse ring-2 ring-rose-400/20'
+                : sessionRemainingSeconds <= 300
+                ? 'bg-amber-50 text-amber-800 border-amber-300 ring-2 ring-amber-400/20'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100/70'
+            }`}
+          >
+            <Clock size={13} className={`shrink-0 ${
+              sessionRemainingSeconds <= 60 ? 'text-rose-600' : sessionRemainingSeconds <= 300 ? 'text-amber-600' : 'text-emerald-600'
+            }`} />
+            <span className="hidden sm:inline text-[11px] font-sans font-semibold mr-0.5">
+              {sessionRemainingSeconds <= 60 ? 'समाप्त:' : 'सत्र:'}
+            </span>
+            <span>{formatSessionCountdown(sessionRemainingSeconds)}</span>
+          </div>
+        )}
 
         {/* Notifications Dropdown */}
         <div className="relative" ref={notifRef}>
@@ -332,16 +361,9 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
               <button 
                 onClick={() => {
                   setDropdownOpen(false);
-                  localStorage.removeItem('access_token');
-                  localStorage.removeItem('user_role');
-                  localStorage.removeItem('user_name');
-                  sessionStorage.removeItem('agrishield_cached_coords');
-                  sessionStorage.removeItem('agrishield_cached_locname');
-                  sessionStorage.removeItem('agrishield_cached_satellite');
-                  api.invalidateCache();
-                  navigate('/login');
+                  logout();
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 transition-colors text-left cursor-pointer"
               >
                 <LogOut size={15} /> Sign out
               </button>

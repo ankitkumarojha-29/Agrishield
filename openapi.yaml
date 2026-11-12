@@ -241,6 +241,57 @@ paths:
       responses:
         '200': { description: OK }
 
+  /auth/delete-account/request-otp:
+    post:
+      summary: Request 6-digit verification OTP before 180-day statutory quarantine deletion (DPDP Act 2023 Sec 8(7))
+      responses:
+        '200': { description: OTP generated and dispatched }
+
+  /auth/delete-account/confirm:
+    post:
+      summary: Verify OTP and place farmer account into 180-day statutory quarantine under DPDP Act & CERT-In Directives
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp]
+              properties:
+                otp: { type: string, description: 6-digit numeric OTP }
+                reason: { type: string, description: Optional reason for deletion }
+      responses:
+        '200': { description: Account quarantined for 180 days }
+
+  /auth/restore-account/request-otp:
+    post:
+      summary: Request 6-digit OTP to verify farmer identity before submitting an account restoration request
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { type: string, description: Indian 10-digit mobile number }
+      responses:
+        '200': { description: OTP generated and dispatched }
+
+  /auth/restore-account/confirm:
+    post:
+      summary: Verify OTP and submit formal account restoration request for administrator review
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, otp]
+              properties:
+                phone: { type: string, description: Indian 10-digit mobile number }
+                otp: { type: string, description: 6-digit verification OTP }
+                reason: { type: string, description: Reason for requesting restoration }
+      responses:
+        '200': { description: Restoration request submitted for admin review }
+
   /farms:
     get:
       summary: List farms (paginated)
@@ -609,7 +660,12 @@ paths:
 
   /admin/farmers:
     get:
-      summary: List registered farmers with landholding summaries
+      summary: List registered active farmers with landholding summaries
+      responses: { '200': { description: OK } }
+
+  /admin/farmers/archived:
+    get:
+      summary: List quarantined farmers within 180-day statutory retention window (DPDP Act 2023 Sec 8(7))
       responses: { '200': { description: OK } }
 
   /admin/farmers/{farmer_id}:
@@ -621,6 +677,60 @@ paths:
           required: true
           schema: { type: string }
       responses: { '200': { description: OK } }
+
+  /admin/farmers/{farmer_id}/delete:
+    post:
+      summary: Administrator termination and 180-day quarantine of farmer account
+      parameters:
+        - in: path
+          name: farmer_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses: { '200': { description: OK } }
+
+  /admin/farmers/{farmer_id}/audit-dossier:
+    get:
+      summary: Section 63 Bharatiya Sakshya Adhiniyam 2023 (BSA 2023) certified electronic forensic audit dossier
+      parameters:
+        - in: path
+          name: farmer_id
+          required: true
+          schema: { type: string }
+      responses: { '200': { description: OK } }
+
+  /admin/farmers/{farmer_id}/restore:
+    post:
+      summary: Administrator approval and reinstatement of a 180-day quarantined farmer account
+      parameters:
+        - in: path
+          name: farmer_id
+          required: true
+          schema: { type: string }
+      responses: { '200': { description: Account restored successfully } }
+
+  /admin/farmers/{farmer_id}/reject-restore:
+    post:
+      summary: Administrator rejection of account restoration petition (account remains quarantined)
+      parameters:
+        - in: path
+          name: farmer_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses: { '200': { description: Restoration petition rejected } }
 
   /admin/scans:
     get:

@@ -337,12 +337,62 @@ export type Farmer = {
   phone: string;
   created_at?: string;
   is_active?: boolean;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
+  purge_scheduled_at?: string | null;
+  days_left?: number;
+  deletion_reason?: string | null;
+  deleted_ip?: string | null;
+  registration_ip?: string | null;
+  last_login_ip?: string | null;
   farm_count?: number;
   total_area_ha?: number;
   crops?: string[];
   avatar_url?: string | null;
   farm_names?: string[];
   khasra_numbers?: string[];
+  restore_requested?: boolean;
+  restore_requested_at?: string | null;
+  restore_reason?: string | null;
+  restored_at?: string | null;
+};
+
+export type FarmerAuditDossier = {
+  dossier_id: string;
+  subject_farmer: {
+    id: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    account_status: string;
+    registered_at?: string;
+    registration_ip?: string;
+    last_login_ip?: string;
+    deleted_ip?: string;
+    deleted_at?: string;
+    purge_scheduled_at?: string;
+    days_until_statutory_purge?: number;
+    deletion_reason?: string;
+  };
+  parcels_summary: {
+    total_parcels: number;
+    total_area_ha: number;
+    parcels: any[];
+  };
+  soil_test_history: any[];
+  crop_health_scans: any[];
+  security_audit_logs: any[];
+  statutory_certificate: {
+    statute: string;
+    former_statute: string;
+    electronic_record_hash_sha256: string;
+    certified_by_admin: string;
+    certifier_name: string;
+    certifier_id: string;
+    system_host: string;
+    generated_at_utc: string;
+    legal_declaration: string;
+  };
 };
 
 export type FarmerOverview = {
@@ -530,6 +580,39 @@ export const api = {
     return res.data;
   },
 
+  requestAccountDeletionOtp: async (): Promise<Envelope<{ phone: string; otp_sent: boolean; message: string; otp_code?: string; retention_period_days: number; governing_law: string }>> => {
+    const res = await apiClient.post('/auth/delete-account/request-otp');
+    return res.data;
+  },
+
+  confirmAccountDeletion: async (otp: string, reason?: string): Promise<Envelope<{ account_deleted: boolean; is_quarantined: boolean; retention_days: number; purge_scheduled_at: string; message: string }>> => {
+    api.invalidateCache();
+    const res = await apiClient.post('/auth/delete-account/confirm', { otp, reason });
+    return res.data;
+  },
+
+  requestAccountRestoreOtp: async (phone: string): Promise<Envelope<{ phone: string; otp_sent: boolean; message: string; otp_code?: string; days_left: number; is_quarantined: boolean }>> => {
+    const res = await apiClient.post('/auth/restore-account/request-otp', { phone });
+    return res.data;
+  },
+
+  confirmAccountRestore: async (phone: string, otp: string, reason?: string): Promise<Envelope<{ restore_requested: boolean; status: string; message: string }>> => {
+    const res = await apiClient.post('/auth/restore-account/confirm', { phone, otp, reason });
+    return res.data;
+  },
+
+  adminApproveFarmerRestore: async (farmerId: string): Promise<Envelope<{ success: boolean; account_restored: boolean; farmer_id: string; message: string }>> => {
+    api.invalidateCache();
+    const res = await apiClient.post(`/admin/farmers/${farmerId}/restore`);
+    return res.data;
+  },
+
+  adminRejectFarmerRestore: async (farmerId: string, reason?: string): Promise<Envelope<{ success: boolean; restore_rejected: boolean; farmer_id: string; message: string }>> => {
+    api.invalidateCache();
+    const res = await apiClient.post(`/admin/farmers/${farmerId}/reject-restore`, { reason });
+    return res.data;
+  },
+
   getAdminStats: async (): Promise<Envelope<AdminStats>> => {
     try {
       const res = await apiClient.get('/admin/stats');
@@ -555,6 +638,26 @@ export const api = {
     } catch (err) {
       return createMockResponse([]);
     }
+  },
+
+  getArchivedFarmers: async (page: number = 1, page_size: number = 1000): Promise<Envelope<Farmer[]>> => {
+    try {
+      const res = await apiClient.get(`/admin/farmers/archived?page=${page}&page_size=${page_size}`);
+      return res.data;
+    } catch (err) {
+      return createMockResponse([]);
+    }
+  },
+
+  adminTerminateFarmer: async (farmerId: string, reason?: string): Promise<Envelope<any>> => {
+    api.invalidateCache();
+    const res = await apiClient.post(`/admin/farmers/${farmerId}/delete`, { reason });
+    return res.data;
+  },
+
+  getFarmerAuditDossier: async (farmerId: string): Promise<Envelope<FarmerAuditDossier>> => {
+    const res = await apiClient.get(`/admin/farmers/${farmerId}/audit-dossier`);
+    return res.data;
   },
 
   getFarmerFarms: async (farmerId: string): Promise<Envelope<Farm[]>> => {
