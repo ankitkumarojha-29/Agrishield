@@ -120,7 +120,7 @@ export default function WeatherIrrigation() {
             खेत का मौसम और पानी देने की सलाह
           </h1>
           <p className="text-xs md:text-sm text-slate-500 mt-1">
-            सेंटिनल-2 सैटेलाइट नमी, वाष्पीकरण दर (ET0) और आगामी बारिश के आधार पर सटीक सिंचाई निर्णय।
+            🛰️ सैटेलाइट नमी और बारिश देखकर पानी लगाने की सही सलाह।
           </p>
         </div>
 
@@ -168,7 +168,7 @@ export default function WeatherIrrigation() {
                 {weather.farmer_notification.message}
               </p>
               <p className="text-[11px] text-amber-800 font-semibold mt-1 flex items-center gap-1">
-                <span>👉 अनुशंसित कदम:</span>
+                <span>👉 क्या करें (Action):</span>
                 <strong>{weather.farmer_notification.recommended_action}</strong>
               </p>
             </div>
@@ -180,7 +180,7 @@ export default function WeatherIrrigation() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
               </span>
-              <span>स्वचालित अलर्ट सक्रिय (Auto-Alert Active)</span>
+              <span>मौसम अलर्ट चालू है (Active Alert)</span>
             </div>
             <Link
               to="/alerts"

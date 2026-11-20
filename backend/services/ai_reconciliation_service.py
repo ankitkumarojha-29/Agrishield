@@ -20,6 +20,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_, and_
 from sqlalchemy.orm.attributes import flag_modified
 from geoalchemy2.shape import to_shape
 
@@ -31,7 +32,7 @@ logger = logging.getLogger("agrishield.ai_reconciliation")
 
 
 async def is_ai_service_online() -> bool:
-    """Lightweight 2.5-second health check against the active AI Service URL (dynamic tunnel or configured)."""
+    """Health check against the active AI Service URL with 8.0s timeout for tunnel latency."""
     from services.ai_client import get_effective_ai_service_url
     ai_url = get_effective_ai_service_url()
     if not ai_url:
@@ -41,7 +42,7 @@ async def is_ai_service_online() -> bool:
             "ngrok-skip-browser-warning": "true",
             "User-Agent": "AgriShield-Reconciler/1.0"
         }
-        async with httpx.AsyncClient(timeout=2.5, follow_redirects=True, headers=headers) as client:
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=headers) as client:
             resp = await client.get(f"{ai_url}/health/")
             return resp.status_code == 200
     except Exception:
@@ -61,7 +62,15 @@ async def reconcile_pending_crop_scans(db: AsyncSession, batch_limit: int = 15) 
             select(AIAssessment)
             .where(
                 AIAssessment.type == AssessmentType.CROP_HEALTH,
-                AIAssessment.model_version.like("%mock%")
+                or_(
+                    AIAssessment.model_version.like("%mock%"),
+                    AIAssessment.model_version.like("%fallback%"),
+                    AIAssessment.payload["is_fallback"].astext == "true",
+                    and_(
+                        AIAssessment.model_version == "cv-efficientnet-b0-v1",
+                        AIAssessment.payload["reanalysis_completed"].astext.is_(None)
+                    )
+                )
             )
             .order_by(AIAssessment.created_at.asc())
             .limit(batch_limit)
@@ -103,11 +112,13 @@ async def reconcile_pending_crop_scans(db: AsyncSession, batch_limit: int = 15) 
                 model_ver = real_result.get("model_version", "effnet-crop-v1")
 
                 if "healthy" in label.lower():
-                    treatment = "फसल की पत्तियां पूरी तरह स्वस्थ और रोग-मुक्त हैं। संतुलित खाद और पानी बनाए रखें।"
-                    prevention = "हर 5-7 दिन में खेत की सामान्य निगरानी करें।"
+                    treatment = "पत्तियां पूरी तरह स्वस्थ हैं। सामान्य खाद-पानी बनाए रखें।"
+                    prevention = "हर 5-7 दिन में खेत की सामान्य निगरानी करते रहें।"
                 else:
-                    treatment = f"{label} रोग के लक्षण पाए गए हैं। नजदीकी कृषि विज्ञान केंद्र (KVK) अनुसार उचित कीटनाशक/फफूंदनाशक का छिड़काव करें।"
-                    prevention = "खेत के चारों ओर खरपतवार साफ रखें और रोगी पत्तियों को नष्ट करें।"
+                    treatment = f"{label} रोग के लक्षण हैं। नजदीकी कृषि केंद्र या दवाई की दुकान अनुसार उचित फफूंदनाशक/कीटनाशक का छिड़काव करें।"
+                    prevention = "खेत के चारों ओर खरपतवार साफ रखें और रोग लगी पत्तियों को खेत से दूर फेंकें।"
+
+                previous_label = payload.get("diagnosis") or payload.get("disease") or "Healthy Leaf"
 
                 assessment.model_version = model_ver
                 assessment.confidence = confidence
@@ -122,6 +133,16 @@ async def reconcile_pending_crop_scans(db: AsyncSession, batch_limit: int = 15) 
                 payload["ai_engine"] = "live_tunnel"
                 payload["reanalyzed_at"] = datetime.utcnow().isoformat()
                 payload["reanalysis_completed"] = True
+                payload["previous_diagnosis"] = previous_label
+                payload["reason_for_change"] = (
+                    f"पहले इंटरनेट न होने से कच्ची रिपोर्ट ({previous_label}) मिली थी। "
+                    f"अब लाइव AI मॉडल (EfficientNet-B0) द्वारा पत्ती की मूल तस्वीर की पक्की जांच करके सही रोग '{label}' (सटीकता: {round(confidence * 100)}%) पाया गया है।"
+                )
+                payload["reason_for_change_en"] = (
+                    f"Initial result was an offline preliminary estimate ({previous_label}). "
+                    f"Upon AI tunnel connection, the original leaf image was re-analyzed using the live EfficientNet-B0 model, "
+                    f"updating to verified diagnosis '{label}' ({round(confidence * 100)}% confidence)."
+                )
 
                 assessment.payload = payload
                 flag_modified(assessment, "payload")

@@ -1143,7 +1143,7 @@ async def request_delete_account_otp(
     return _ok({
         "phone": current_user.phone,
         "otp_sent": dispatch_res.get("success", True),
-        "message": f"खाता विलोपन सत्यापन कोड (Deletion OTP) {current_user.phone} पर भेज दिया गया है। 180 दिनों की वैधानिक सुरक्षा लागू होगी।",
+        "message": f"खाता बंद करने का सुरक्षा कोड (OTP) {current_user.phone} पर भेज दिया गया है। 180 दिनों की वैधानिक सुरक्षा लागू होगी।",
         "otp_code": dispatch_res.get("otp_code"),  # Provided in free dev/demo mode
         "retention_period_days": 180,
         "governing_law": "Digital Personal Data Protection Act, 2023 (DPDP Act, Sec 8(7)) & CERT-In Directives"
@@ -1219,9 +1219,9 @@ async def confirm_delete_account(
         "retention_days": 180,
         "purge_scheduled_at": purge_date.isoformat(),
         "message": (
-            "आपका खाता सफलतापूर्वक निष्क्रिय कर दिया गया है। भारतीय कानून (DPDP Act 2023 एवं CERT-In) के "
-            "अनुसार वित्तीय एवं भूमि सुरक्षा ऑडिट हेतु यह डेटा 180 दिनों तक सुरक्षित क्वारंटाइन में रहेगा, "
-            "जिसके पश्चात PII डेटा स्थायी रूप से नष्ट कर दिया जाएगा।"
+            "आपका खाता 180 दिनों की वैधानिक अवधि के लिए बंद कर दिया गया है। भारतीय डेटा सुरक्षा कानून (DPDP Act 2023) के "
+            "अनुसार वित्तीय एवं भूमि सुरक्षा ऑडिट हेतु यह डेटा 180 दिनों तक सुरक्षित रहेगा, "
+            "जिसके पश्चात व्यक्तिगत पहचान डेटा हमेशा के लिए मिटा दिया जाएगा।"
         )
     })
 

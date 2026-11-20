@@ -111,10 +111,10 @@ export default function Farmers() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       } else {
-        alert(res?.error?.message || 'डॉसियर डाउनलोड करने में त्रुटि आई');
+        alert(res?.error?.message || 'किसान फाइल (Dossier) डाउनलोड नहीं हो सकी');
       }
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.message || 'डॉसियर तैयार करने में विफल');
+      alert(err.response?.data?.error?.message || err.message || 'किसान फाइल तैयार करने में समस्या आई');
     } finally {
       setDossierDownloadingId(null);
     }
@@ -127,7 +127,7 @@ export default function Farmers() {
     try {
       const res = await api.adminTerminateFarmer(terminateFarmerTarget.id, terminateReason.trim());
       if (res.success) {
-        setTerminateMessage(res.data?.message || 'किसान खाता 180-दिवसीय क्वारंटाइन में डाल दिया गया है।');
+        setTerminateMessage(res.data?.message || 'किसान खाता 180 दिनों की वैधानिक अवधि के लिए बंद कर दिया गया है।');
         setTimeout(() => {
           setShowTerminateModal(false);
           setTerminateFarmerTarget(null);
@@ -138,23 +138,23 @@ export default function Farmers() {
           loadArchivedFarmers();
         }, 1800);
       } else {
-        alert(res?.error?.message || 'खाता समाप्त करने में त्रुटि आई');
+        alert(res?.error?.message || 'खाता बंद करने में समस्या आई');
       }
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.message || 'त्रुटि उत्पन्न हुई');
+      alert(err.response?.data?.error?.message || err.message || 'समस्या आई, दोबारा कोशिश करें');
     } finally {
       setTerminating(false);
     }
   };
 
   const handleAdminApproveRestore = async (farmer: Farmer) => {
-    if (!window.confirm(`क्या आप किसान '${farmer.name || farmer.phone}' का खाता पुनः बहाल (Restore) करना चाहते हैं? बहाली के बाद किसान सामान्य रूप से लॉगिन एवं सेवाओं का उपयोग कर सकेगा।`)) {
+    if (!window.confirm(`क्या आप किसान '${farmer.name || farmer.phone}' का खाता पुनः चालू (Restore) करना चाहते हैं? मंजूरी के बाद किसान सामान्य रूप से लॉगिन कर सकेगा।`)) {
       return;
     }
     try {
       const res = await api.adminApproveFarmerRestore(farmer.id);
       if (res && res.success) {
-        alert(res.data?.message || 'खाता सफलतापूर्वक पुनः बहाल कर दिया गया है।');
+        alert(res.data?.message || 'खाता सफलतापूर्वक पुनः चालू (Restore) कर दिया गया है।');
         if (selectedFarmer?.id === farmer.id) {
           setSelectedFarmer(null);
         }
@@ -169,18 +169,18 @@ export default function Farmers() {
   };
 
   const handleAdminRejectRestore = async (farmer: Farmer) => {
-    const reason = window.prompt(`किसान '${farmer.name || farmer.phone}' का बहाली अनुरोध अस्वीकार करने का कारण दर्ज करें:`, 'सत्यापन उपरांत प्रशासनिक निर्णय');
+    const reason = window.prompt(`किसान '${farmer.name || farmer.phone}' का खाता चालू करने का अनुरोध अस्वीकार करने का कारण लिखें:`, 'सत्यापन उपरांत प्रशासनिक निर्णय');
     if (reason === null) return;
     try {
       const res = await api.adminRejectFarmerRestore(farmer.id, reason.trim() || undefined);
       if (res && res.success) {
-        alert(res.data?.message || 'बहाली अनुरोध अस्वीकार किया गया। खाता 180-दिवसीय क्वारंटाइन में रहेगा।');
+        alert(res.data?.message || 'अनुरोध अस्वीकार किया गया। खाता 180 दिनों की वैधानिक अवधि में रहेगा।');
         if (selectedFarmer?.id === farmer.id) {
           setSelectedFarmer({ ...selectedFarmer, restore_requested: false });
         }
         loadArchivedFarmers();
       } else {
-        alert(res?.error?.message || 'अनुरोध अस्वीकार करने में त्रुटि आई');
+        alert(res?.error?.message || 'अनुरोध अस्वीकार करने में समस्या आई');
       }
     } catch (err: any) {
       alert(err.response?.data?.error?.message || err.message || 'अनुरोध अस्वीकार करने में त्रुटि हुई');
@@ -450,7 +450,7 @@ export default function Farmers() {
           }`}
         >
           <Shield size={16} />
-          <span>180-दिवसीय वैधानिक क्वारंटाइन (Quarantined Farmers)</span>
+          <span>180-दिवसीय वैधानिक रोक (DPDP Act 2023)</span>
           {archivedFarmers.length > 0 && (
             <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-200 text-rose-900 font-black">
               {archivedFarmers.length}
@@ -464,12 +464,12 @@ export default function Farmers() {
           <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-xs text-rose-900 space-y-1">
             <div className="font-bold flex items-center gap-2 text-rose-950">
               <Shield size={16} className="text-rose-700 shrink-0" />
-              <span>180-दिवसीय वैधानिक क्वारंटाइन एवं साक्ष्य संरक्षण (DPDP Act 2023 Sec 8(7) &amp; CERT-In Directives)</span>
+              <span>180-दिवसीय वैधानिक रोक एवं साक्ष्य संरक्षण (DPDP Act 2023 Sec 8(7) &amp; CERT-In Directives)</span>
             </div>
             <p className="text-[11px] text-rose-800 leading-relaxed">
               इस खंड में वे किसान खाते शामिल हैं जिन्हें किसान द्वारा स्वयं हटाया गया है या व्यवस्थापक द्वारा समाप्त किया गया है।
-              भारतीय साक्ष्य अधिनियम (Bharatiya Sakshya Adhiniyam 2023, धारा 63) के तहत यह डेटा 180 दिनों तक न्यायालय-मान्य इलेक्ट्रॉनिक साक्ष्य
-              के रूप में सुरक्षित रहेगा। 181वें दिन स्वचालित PII विलोपन निष्पादित होगा।
+              भारतीय साक्ष्य अधिनियम (Bharatiya Sakshya Adhiniyam 2023, धारा 63) के तहत यह डेटा 180 दिनों तक सुरक्षित रहेगा।
+              181वें दिन व्यक्तिगत पहचान डेटा (PII) हमेशा के लिए मिटाया जाएगा।
             </p>
           </div>
 
@@ -484,7 +484,7 @@ export default function Farmers() {
                   : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
               }`}
             >
-              सभी क्वारंटाइन खाते ({archivedFarmers.length})
+              सभी बंद खाते ({archivedFarmers.length})
             </button>
             <button
               type="button"
@@ -496,7 +496,7 @@ export default function Farmers() {
               }`}
             >
               <RotateCcw size={13} className={archivedSubFilter === 'requests_only' ? 'text-white' : 'text-amber-700'} />
-              <span>बहाली अनुरोध लंबित (Restore Requests)</span>
+              <span>खाता पुनः चालू करने के अनुरोध (Restore Requests)</span>
               {archivedFarmers.filter(f => f.restore_requested).length > 0 && (
                 <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-200 text-amber-950 font-black">
                   {archivedFarmers.filter(f => f.restore_requested).length}
@@ -513,14 +513,14 @@ export default function Farmers() {
             ) : archivedFarmers.length === 0 ? (
               <div className="p-12 text-center text-slate-500 space-y-2">
                 <CheckCircle2 size={36} className="text-emerald-500 mx-auto" />
-                <h3 className="text-base font-bold text-slate-800">कोई क्वारंटाइन खाता नहीं है</h3>
-                <p className="text-xs text-slate-400">वर्तमान में किसी भी किसान का खाता 180-दिवसीय क्वारंटाइन में नहीं है।</p>
+                <h3 className="text-base font-bold text-slate-800">कोई बंद खाता नहीं है</h3>
+                <p className="text-xs text-slate-400">वर्तमान में किसी भी किसान का खाता 180-दिवसीय वैधानिक रोक में नहीं है।</p>
               </div>
             ) : (archivedSubFilter === 'requests_only' && archivedFarmers.filter(f => f.restore_requested).length === 0) ? (
               <div className="p-12 text-center text-slate-500 space-y-2">
                 <CheckCircle2 size={36} className="text-emerald-500 mx-auto" />
-                <h3 className="text-base font-bold text-slate-800">कोई बहाली अनुरोध लंबित नहीं है</h3>
-                <p className="text-xs text-slate-400">सभी क्वारंटाइन किसानों के अनुरोध संसाधित हो चुके हैं।</p>
+                <h3 className="text-base font-bold text-slate-800">कोई पुनः चालू करने का अनुरोध लंबित नहीं है</h3>
+                <p className="text-xs text-slate-400">सभी किसानों के अनुरोध स्वीकृत/निस्तारित हो चुके हैं।</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -530,7 +530,7 @@ export default function Farmers() {
                       <th className="px-5 py-3.5">किसान / Farmer</th>
                       <th className="px-5 py-3.5">संपर्क / Phone</th>
                       <th className="px-5 py-3.5">निष्क्रिय तिथि / IP</th>
-                      <th className="px-5 py-3.5">क्वारंटाइन शेष / Days Left</th>
+                      <th className="px-5 py-3.5">वैधानिक अवधि शेष / Days Left</th>
                       <th className="px-5 py-3.5">कारण / Reason</th>
                       <th className="px-5 py-3.5 text-right">कार्रवाई / Actions</th>
                     </tr>
@@ -996,7 +996,7 @@ export default function Farmers() {
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-rose-950 text-xs flex items-center gap-1.5">
                       <Shield size={14} className="text-rose-700" />
-                      180-दिवसीय वैधानिक क्वारंटाइन (DPDP Act 2023)
+                      180-दिवसीय वैधानिक रोक (DPDP Act 2023)
                     </span>
                     <span className="text-[11px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
                       {selectedFarmer.days_left ?? 0} दिन शेष
@@ -1505,7 +1505,7 @@ export default function Farmers() {
                 </p>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900 space-y-1">
                   <p className="font-bold">वैधानिक सुरक्षा प्रभाव:</p>
-                  <p>किसान का लॉगिन तुरंत अवरुद्ध हो जाएगा और खाता 180 दिनों तक कानूनी ऑडिट हेतु सुरक्षित क्वारंटाइन में रहेगा।</p>
+                  <p>किसान का लॉगिन तुरंत बंद हो जाएगा और खाता 180 दिनों तक कानूनी ऑडिट हेतु सुरक्षित वैधानिक रोक में रहेगा।</p>
                 </div>
 
                 <div>

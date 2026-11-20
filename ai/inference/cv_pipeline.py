@@ -92,9 +92,11 @@ def _load_crop_model():
     with open(_CROP_LABELS_PATH) as f:
         _crop_classes = json.load(f)
     _crop_model = _build_efficientnet(len(_crop_classes))
-    _crop_model.load_state_dict(
-        torch.load(_CROP_MODEL_PATH, map_location=DEVICE)
-    )
+    try:
+        state_dict = torch.load(_CROP_MODEL_PATH, map_location=DEVICE, weights_only=False)
+    except TypeError:
+        state_dict = torch.load(_CROP_MODEL_PATH, map_location=DEVICE)
+    _crop_model.load_state_dict(state_dict)
     _crop_model.to(DEVICE).eval()
     print(f"[cv_pipeline] [OK] Crop health model loaded ({len(_crop_classes)} classes)")
 
@@ -113,9 +115,11 @@ def _load_damage_model():
     _dmg_classes  = meta["classes"]
     _dmg_pct_map  = meta.get("damage_pct_map", {})
     _dmg_model = _build_efficientnet(len(_dmg_classes))
-    _dmg_model.load_state_dict(
-        torch.load(_DMG_MODEL_PATH, map_location=DEVICE)
-    )
+    try:
+        state_dict = torch.load(_DMG_MODEL_PATH, map_location=DEVICE, weights_only=False)
+    except TypeError:
+        state_dict = torch.load(_DMG_MODEL_PATH, map_location=DEVICE)
+    _dmg_model.load_state_dict(state_dict)
     _dmg_model.to(DEVICE).eval()
     print(f"[cv_pipeline] [OK] Damage model loaded ({len(_dmg_classes)} classes)")
 

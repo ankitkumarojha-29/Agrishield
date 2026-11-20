@@ -37,10 +37,10 @@ export default function Login() {
   const [infoBanner, setInfoBanner] = useState<string | null>(() => {
     if (typeof window !== 'undefined' && window.location.search) {
       if (window.location.search.includes('session_expired=true')) {
-        return '⏱️ किसान सत्र सुरक्षा: 30 मिनट की समयावधि पूर्ण होने के कारण आपका सत्र स्वतः समाप्त हो गया है। कृपया पुनः लॉगिन करें। (Your 30-minute session has expired. Please log in again.)';
+        return '⏱️ 30 मिनट पूरे होने पर सुरक्षा के लिए सत्र समाप्त हुआ। कृपया दोबारा लॉगिन करें। (Your 30-minute session expired. Please log in again.)';
       }
       if (window.location.search.includes('deleted=true')) {
-        return '🛡️ आपका खाता 180 दिनों के वैधानिक क्वारंटाइन में डाल दिया गया है। (Account deactivated and quarantined for 180 days per Indian law).';
+        return '🛡️ आपका खाता 180 दिनों की वैधानिक अवधि में सुरक्षित है। (Account deactivated for 180 days per Indian DPDP Act).';
       }
     }
     return null;
@@ -552,10 +552,10 @@ export default function Login() {
               </div>
               <div className="space-y-1">
                 <p className="font-bold text-amber-950 text-xs sm:text-sm">
-                  क्या आप अपना खाता पुनः बहाल (Restore) करना चाहते हैं?
+                  क्या आप अपना खाता पुनः चालू (Restore) करना चाहते हैं?
                 </p>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
-                  डीपीडीपी अधिनियम, 2023 (DPDP Act 2023 Sec 6 & 12) के तहत आपका खाता 180 दिनों की वैधानिक अवधि में सुरक्षित है। आप ओटीपी सत्यापन द्वारा व्यवस्थापक (Admin) को खाता बहाली का अनुरोध भेज सकते हैं।
+                  डीपीडीपी अधिनियम, 2023 (DPDP Act 2023) के तहत आपका खाता 180 दिनों की वैधानिक अवधि में सुरक्षित है। आप OTP सत्यापन द्वारा एडमिन को खाता दोबारा चालू करने की अर्जी भेज सकते हैं।
                 </p>
               </div>
             </div>
@@ -566,7 +566,7 @@ export default function Login() {
                 className="px-3.5 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
               >
                 <RotateCcw size={13} />
-                <span>खाता बहाली अनुरोध भेजें (Request Restore)</span>
+                <span>खाता पुनः चालू करने की अर्जी भेजें (Request Restore)</span>
               </button>
               <button
                 type="button"
@@ -756,7 +756,7 @@ export default function Login() {
                 <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 text-amber-950 text-xs shadow-sm flex items-center justify-between">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-900">
-                      <span>🔐 सत्यापन कोड (OTP Code):</span>
+                      <span>🔐 मोबाइल OTP कोड (Login OTP):</span>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <strong className="font-mono text-xl tracking-widest text-amber-950 bg-white/90 px-2.5 py-0.5 rounded-lg border border-amber-200 shadow-xs">
@@ -892,7 +892,7 @@ export default function Login() {
                 {demoOtpCode && (
                   <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 text-amber-950 text-xs shadow-sm flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-amber-800 font-bold block">🔐 सत्यापन कोड (OTP Code):</span>
+                      <span className="text-[10px] text-amber-800 font-bold block">🔐 मोबाइल OTP कोड (Login OTP):</span>
                       <strong className="font-mono text-lg tracking-widest text-amber-950">{demoOtpCode}</strong>
                     </div>
                     <button
@@ -1064,13 +1064,13 @@ export default function Login() {
                 <span>डिजिटल व्यक्तिगत डेटा संरक्षण अधिनियम (DPDP Act 2023) वैधानिक अधिकार</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-relaxed">
-                180 दिनों की वैधानिक अवधि के दौरान खाता धारक को सहमति पुनः प्रदान (Re-consent) करने का विधिक अधिकार है। 
-                ओटीपी प्रमाणीकरण के उपरांत व्यवस्थापक (Admin) द्वारा स्वीकृति दिए जाने पर आपका खाता समस्त भूमि एवं स्वास्थ्य रिकॉर्ड सहित बहाल कर दिया जाएगा।
+                180 दिनों की वैधानिक अवधि के दौरान खाता धारक को सहमति पुनः प्रदान (Re-consent) करने का कानूनी अधिकार है। 
+                OTP सत्यापन के बाद एडमिन द्वारा मंजूरी दिए जाने पर आपका खाता समस्त ज़मीन व रिकॉर्ड्स सहित फिर चालू हो जाएगा।
               </p>
               {restoreDaysLeft !== null && (
                 <div className="pt-1 flex items-center gap-1 text-[11px] font-bold text-amber-900">
                   <Clock size={12} className="text-amber-700" />
-                  <span>अवशिष्ट क्वारंटाइन समयावधि: {restoreDaysLeft} दिन शेष (181वें दिन पर डेटा स्थायी रूप से नष्ट होगा)</span>
+                  <span>अवशिष्ट वैधानिक अवधि: {restoreDaysLeft} दिन शेष (181वें दिन पर डेटा स्थायी रूप से मिटाया जाएगा)</span>
                 </div>
               )}
             </div>
@@ -1080,14 +1080,14 @@ export default function Login() {
                 <div className="w-12 h-12 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-600 mx-auto">
                   <CheckCircle2 size={28} />
                 </div>
-                <h4 className="font-bold text-emerald-950 text-sm">अनुरोध सफलतापूर्वक दर्ज हुआ!</h4>
+                <h4 className="font-bold text-emerald-950 text-sm">खाता चालू करने का अनुरोध दर्ज हुआ!</h4>
                 <p className="text-xs text-emerald-800 leading-relaxed">
                   {restoreSuccessMsg}
                 </p>
                 <div className="p-3 bg-white/90 rounded-xl border border-emerald-100 text-[11px] text-slate-600 text-left space-y-1">
-                  <p>• <strong>स्थिति:</strong> व्यवस्थापक (Admin) सत्यापन एवं समीक्षा हेतु लंबित</p>
-                  <p>• <strong>प्रक्रिया:</strong> व्यवस्थापक द्वारा स्वीकृति मिलने पर आपको अलर्ट प्राप्त होगा।</p>
-                  <p>• स्वीकृति के उपरांत आप अपने इसी पंजीकृत मोबाइल नंबर से सामान्य लॉगिन कर सकेंगे।</p>
+                  <p>• <strong>स्थिति:</strong> एडमिन की समीक्षा एवं सत्यापन हेतु लंबित</p>
+                  <p>• <strong>प्रक्रिया:</strong> एडमिन द्वारा स्वीकृति मिलते ही आपको SMS अलर्ट मिलेगा।</p>
+                  <p>• <strong>मंजूरी के बाद:</strong> आप अपने इसी मोबाइल नंबर से सीधे लॉगिन कर सकेंगे।</p>
                 </div>
                 <button
                   type="button"
@@ -1137,7 +1137,7 @@ export default function Login() {
                       disabled={restoreLoading}
                       className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-colors shrink-0 cursor-pointer shadow-xs"
                     >
-                      {restoreLoading ? 'भेज रहे हैं...' : restoreStep === 'verify' ? 'पुनः भेजें' : 'ओटीपी भेजें'}
+                      {restoreLoading ? 'भेज रहे हैं...' : restoreStep === 'verify' ? 'दोबारा भेजें' : 'OTP भेजें'}
                     </button>
                   </div>
                 </div>
@@ -1147,7 +1147,7 @@ export default function Login() {
                   <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-xl flex items-center justify-between text-xs text-sky-900">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Sparkles size={14} className="text-sky-600 shrink-0" />
-                      <span>डेमो सत्यापन कोड:</span>
+                      <span>डेमो OTP कोड:</span>
                       <span className="font-mono font-black text-sky-950 bg-sky-100 px-2 py-0.5 rounded border border-sky-300">
                         {restoreDemoOtp}
                       </span>
@@ -1165,7 +1165,7 @@ export default function Login() {
                 {/* 6-Digit OTP Input */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    6-अंकों का सत्यापन ओटीपी (6-Digit OTP)
+                    मोबाइल पर आया 6-अंकों का OTP कोड डालें:
                   </label>
                   <input
                     type="text"
@@ -1183,7 +1183,7 @@ export default function Login() {
                 {/* Restoration Reason */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    खाता पुनः चालू करने का कारण (Reason for Restoration)
+                    खाता पुनः चालू करने की वजह (Reason for Restoration - Optional):
                   </label>
                   <textarea
                     rows={2}

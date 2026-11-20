@@ -258,7 +258,7 @@ def _build_agronomic_weather_and_irrigation(
         badge_en = "Moisture Optimal - Hold"
         title_hi = f"पानी देने की जरूरत नहीं है (अगले 48 घंटे सुरक्षित)"
         title_en = "Soil Moisture Optimal — Hold Irrigation for 48 Hours"
-        reason_hi = f"जमीन में जड़ों की गहराई तक पर्याप्त नमी ({soil_moisture_pct}%) मौजूद है। वर्तमान मौसम में वाष्पीकरण दर {daily_et0} mm/दिन है, जो सामान्य है। अभी पानी देने से खाद लीच हो जाएगी।"
+        reason_hi = f"जमीन में जड़ों तक पर्याप्त नमी ({soil_moisture_pct}%) है। मिट्टी में पानी सूखने की रफ्तार सामान्य है। अभी पानी देने से खाद बह जाएगी।"
         reason_en = f"Root-zone soil moisture is currently at {soil_moisture_pct}%, safely above the {min_thresh}% threshold for {crop_name}. Daily ET depletion is balanced at {daily_et0} mm/day."
     elif soil_moisture_pct <= min_thresh:
         status = "water"
@@ -267,9 +267,9 @@ def _build_agronomic_weather_and_irrigation(
         badge_en = "Irrigation Required Today"
         title_hi = f"आज शाम खेत में {run_hours} घंटे का पानी दें"
         title_en = f"Irrigate Today: {run_hours} Hours Recommended in Evening"
-        reason_hi = f"जमीन में नमी घटकर {soil_moisture_pct}% पर आ गई है (न्यूनतम सीमा {min_thresh}%)। फसल {crop_spec['name_hi']} में {crop_spec['critical_stages']} पर जल तनाव पैदावार को नुकसान पहुंचा सकता है।"
+        reason_hi = f"जमीन में नमी घटकर {soil_moisture_pct}% पर आ गई है (न्यूनतम सीमा {min_thresh}%)। फसल {crop_spec['name_hi']} में {crop_spec['critical_stages']} पर पानी की कमी से पैदावार घट सकती है।"
         reason_en = f"Soil moisture has dropped to {soil_moisture_pct}%, falling below the critical threshold of {min_thresh}%. Supplemental irrigation is required to support {crop_spec['critical_stages']}."
-        best_time_hi = "आज शाम 4:30 बजे से 7:30 बजे के बीच (वाष्पीकरण 35% कम होगा)"
+        best_time_hi = "आज शाम 4:30 से 7:30 बजे के बीच (धूप कम होने से पानी नहीं उड़ेगा)"
         best_time_en = "Today Evening 4:30 PM - 7:30 PM (minimizes evaporative loss)"
     else:
         status = "review"

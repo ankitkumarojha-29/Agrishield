@@ -328,7 +328,7 @@ async def admin_reject_restore(
         "success": True,
         "restore_rejected": True,
         "farmer_id": str(farmer.id),
-        "message": f"किसान '{farmer.name or farmer.phone}' का पुनर्बहाली अनुरोध अस्वीकार कर दिया गया है। खाता 180-दिवसीय वैधानिक क्वारंटाइन में रहेगा।"
+        "message": f"किसान '{farmer.name or farmer.phone}' का खाता चालू करने का अनुरोध अस्वीकार कर दिया गया है। खाता 180 दिनों की वैधानिक अवधि में रहेगा।"
     })
 
 @router.post("/farmers/{farmer_id}/delete")
@@ -391,7 +391,7 @@ async def admin_terminate_farmer(
         "farmer_id": str(farmer.id),
         "retention_days": 180,
         "purge_scheduled_at": purge_date.isoformat(),
-        "message": f"किसान '{farmer.name}' का खाता सफलतापूर्वक निष्क्रिय कर 180-दिवसीय वैधानिक क्वारंटाइन में डाल दिया गया है।"
+        "message": f"किसान '{farmer.name}' का खाता 180 दिनों की वैधानिक अवधि के लिए बंद कर दिया गया है।"
     })
 
 @router.get("/farmers/{farmer_id}/audit-dossier")
@@ -712,8 +712,17 @@ async def register_live_ai_tunnel(
 
     set_dynamic_tunnel_url(clean_url)
 
-    # Automatically trigger reconciliation for any records queued during offline fallback
-    asyncio.create_task(reconcile_all_pending_ai_assessments(db))
+    # Automatically trigger reconciliation for any records queued during offline fallback using an independent session
+    from db.session import AsyncSessionLocal
+
+    async def _run_bg_reconciliation():
+        try:
+            async with AsyncSessionLocal() as bg_db:
+                await reconcile_all_pending_ai_assessments(bg_db)
+        except Exception as bg_err:
+            logger.error(f"[AI_TUNNEL] Background reconciliation error: {bg_err}")
+
+    asyncio.create_task(_run_bg_reconciliation())
 
     return _ok({
         "status": "connected",

@@ -228,7 +228,15 @@ async def get_my_crop_scans(
                 "farmer_name": p.get("farmer_name") or "Farmer",
                 "farmer_phone": p.get("farmer_phone") or "",
                 "user_id": str(p.get("user_id", "")),
-                "farm_name": p.get("farm_name") or (farm_name_map.get(str(s.farm_id)) if s.farm_id else "Field Scan")
+                "farm_name": p.get("farm_name") or (farm_name_map.get(str(s.farm_id)) if s.farm_id else "Field Scan"),
+                "model_version": s.model_version,
+                "is_fallback": p.get("is_fallback", False),
+                "ai_engine": p.get("ai_engine", ""),
+                "reanalysis_completed": p.get("reanalysis_completed", False),
+                "reanalyzed_at": p.get("reanalyzed_at"),
+                "previous_diagnosis": p.get("previous_diagnosis"),
+                "reason_for_change": p.get("reason_for_change"),
+                "reason_for_change_en": p.get("reason_for_change_en"),
             })
 
     return _ok(my_scans)
@@ -537,7 +545,10 @@ async def farm_crop_health(
                     "recommendations": result.get("recommendations", []),
                     "file_id": file_id,
                     "image_url": image_url,
-                    "image_data_uri": data_uri
+                    "image_data_uri": data_uri,
+                    "is_fallback": bool(result.get("is_fallback", False)),
+                    "ai_engine": str(result.get("ai_engine", "offline_fallback" if result.get("is_fallback") else "live_tunnel")),
+                    "reanalysis_completed": False
                 }
             )
             db.add(assessment)

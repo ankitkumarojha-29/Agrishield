@@ -18,11 +18,8 @@ import { CropSearchSelect } from '../components/CropSearchSelect';
 import { AIScanLoader, LaserScanOverlay } from '../components/common/AIScanLoader';
 import { LiveCameraModal } from '../components/common/LiveCameraModal';
 import { compressImage, formatBytes } from '../utils/imageCompressor';
-import { useUserRole } from '../context/RoleContext';
 
 export default function CropScan() {
-  const { role } = useUserRole();
-  const isAdmin = role === 'admin';
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [compressionInfo, setCompressionInfo] = useState<{ original: string; compressed: string; savings: number } | null>(null);
@@ -89,16 +86,58 @@ export default function CropScan() {
     setCrop(scan.crop || 'Wheat');
     setGrowthStage(scan.growth_stage || 'vegetative');
     setResult({
+      id: scan.id,
       label: scan.label || scan.disease || 'Analyzed Crop Leaf',
       severity: (scan.severity || 'moderate').toLowerCase() as any,
       confidence: scan.confidence || 0.9,
-      model_version: 'cv-efficientnet-b0-v1',
+      model_version: scan.model_version || 'cv-efficientnet-b0-v1',
       treatment: scan.treatment || (scan.recommendations && scan.recommendations[0]) || 'अनुशंसित कवकनाशी या कीटनाशक का छिड़काव करें।',
       prevention: scan.prevention || (scan.recommendations && scan.recommendations[1]) || 'खेत में स्वच्छता बनाए रखें और रोगी पत्तियों को अलग करें।',
-      low_confidence: false
+      low_confidence: false,
+      is_fallback: scan.is_fallback,
+      ai_engine: scan.ai_engine,
+      reanalysis_completed: scan.reanalysis_completed,
+      reanalyzed_at: scan.reanalyzed_at,
+      previous_diagnosis: scan.previous_diagnosis,
+      reason_for_change: scan.reason_for_change || scan.reason_for_change_en
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Auto-refresh scan history if currently viewing an unreviewed offline scan
+  useEffect(() => {
+    if (!result?.is_fallback || result?.reanalysis_completed) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.getMyCropScans();
+        if (res.success && res.data) {
+          setRecentScans(res.data);
+          const updated = res.data.find((s: any) => s.id === result.id);
+          if (updated && updated.reanalysis_completed) {
+            setResult({
+              id: updated.id,
+              label: updated.label || updated.disease || 'Analyzed Crop Leaf',
+              severity: (updated.severity || 'moderate').toLowerCase() as any,
+              confidence: updated.confidence || 0.9,
+              model_version: updated.model_version || 'effnet-crop-v1',
+              treatment: updated.treatment || (updated.recommendations && updated.recommendations[0]) || '',
+              prevention: updated.prevention || (updated.recommendations && updated.recommendations[1]) || '',
+              low_confidence: false,
+              is_fallback: false,
+              ai_engine: updated.ai_engine || 'live_tunnel',
+              reanalysis_completed: true,
+              reanalyzed_at: updated.reanalyzed_at,
+              previous_diagnosis: updated.previous_diagnosis,
+              reason_for_change: updated.reason_for_change || updated.reason_for_change_en
+            });
+          }
+        }
+      } catch {
+        // silent polling catch
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [result?.id, result?.is_fallback, result?.reanalysis_completed]);
 
   useEffect(() => {
     return () => {
@@ -399,34 +438,54 @@ export default function CropScan() {
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">AI Diagnostic Engine</span>
                   <div className="mt-1 flex items-center gap-1.5">
-                    {isAdmin ? (
-                      result.model_version && !result.model_version.toLowerCase().includes('mock') ? (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                          Live PyTorch ({result.model_version})
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold" title="Auto-reconciles when AI tunnel is connected">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                          Offline Queue ({result.model_version || 'mock-v1'})
-                        </span>
-                      )
+                    {result.reanalysis_completed ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold border border-blue-200" title="AI टनल चालू होने पर वास्तविक मॉडल द्वारा पुनः विश्लेषित">
+                        <Sparkles size={12} className="text-blue-600" />
+                        सटीक AI द्वारा अपडेट (Live AI)
+                      </span>
+                    ) : result.is_fallback || result.model_version?.toLowerCase().includes('mock') ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold" title="AI टनल चालू होने पर यह स्वतः सटीक AI मॉडल से पुनः विश्लेषित होगा">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        प्रारंभिक विश्लेषण (ऑफलाइन कतार)
+                      </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200">
-                        <Sparkles size={12} className="text-emerald-600" />
-                        AgriShield Precision AI (B0)
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold border border-emerald-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        सटीक AI मॉडल (Live PyTorch)
                       </span>
                     )}
                   </div>
                 </div>
               </div>
 
+              {/* Reason for Change: Displayed ONLY when scan was updated from offline to live AI */}
+              {result.reanalysis_completed && result.reason_for_change && (
+                <div className="p-4 rounded-xl bg-blue-50/90 border border-blue-200 text-xs text-blue-950 animate-in fade-in">
+                  <div className="font-bold flex items-center gap-1.5 text-blue-900 text-sm">
+                    <Sparkles size={16} className="text-blue-700" /> परिणाम क्यों बदला (Reason for Updated Diagnosis)
+                  </div>
+                  <p className="mt-1.5 text-blue-900 leading-relaxed text-[13px]">
+                    {result.reason_for_change}
+                  </p>
+                  {result.previous_diagnosis && (
+                    <div className="mt-2.5 pt-2 border-t border-blue-200/60 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="text-slate-500">पहला ऑफलाइन अनुमान:</span>
+                      <span className="line-through text-slate-600 font-semibold">{result.previous_diagnosis}</span>
+                      <span className="text-slate-400">➔</span>
+                      <span className="text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded">
+                        सटीक प्रमाणित परिणाम: {result.label}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Curative Treatment */}
               <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs">
                 <h4 className="font-bold text-emerald-950 flex items-center gap-1.5 mb-1.5 text-sm">
-                  <Sparkles size={16} className="text-emerald-700" /> Curative Agronomic Prescription
+                  <Sparkles size={16} className="text-emerald-700" /> 💊 तुरंत इलाज व दवा (Treatment)
                 </h4>
-                <p className="text-emerald-900 leading-relaxed">
+                <p className="text-emerald-900 leading-relaxed font-medium">
                   {result.treatment}
                 </p>
               </div>
@@ -434,9 +493,9 @@ export default function CropScan() {
               {/* Preventive Measures */}
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
                 <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-1.5 text-sm">
-                  <CheckCircle2 size={16} className="text-slate-600" /> Long-Term Preventive Measures
+                  <CheckCircle2 size={16} className="text-slate-600" /> 🛡️ आगे के लिए बचाव (Prevention)
                 </h4>
-                <p className="text-slate-600 leading-relaxed">
+                <p className="text-slate-600 leading-relaxed font-medium">
                   {result.prevention}
                 </p>
               </div>
@@ -540,9 +599,17 @@ export default function CropScan() {
                   <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
                       <span>विश्वास: <strong className="text-slate-800">{Math.round((scan.confidence || 0.9) * 100)}%</strong></span>
-                      {isAdmin && scan.model_version && (
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${scan.model_version.includes('mock') ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                          {scan.model_version.includes('mock') ? 'Queue' : 'Live'}
+                      {scan.reanalysis_completed ? (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800" title="AI टनल द्वारा पुनः विश्लेषित">
+                          Updated
+                        </span>
+                      ) : (scan.is_fallback || scan.model_version?.includes('mock')) ? (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="ऑफलाइन कतार">
+                          Queue
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800" title="सटीक AI विश्लेषण">
+                          Live
                         </span>
                       )}
                     </span>

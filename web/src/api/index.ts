@@ -153,6 +153,12 @@ export type CropHealthResult = {
   prevention?: string;
   is_fallback?: boolean;
   ai_engine?: string;
+  id?: string;
+  reanalysis_completed?: boolean;
+  reanalyzed_at?: string;
+  previous_diagnosis?: string;
+  reason_for_change?: string;
+  reason_for_change_en?: string;
 };
 
 export type SoilAnalysisResult = {

@@ -104,7 +104,7 @@ export default function Alerts() {
             category = 'system';
             severity = 'advisory';
           } else if (lower === 'policy_status' || lower === 'policy status') {
-            cleanTitle = '📋 खाता व योजना स्थिति (Policy Status)';
+            cleanTitle = '📋 बीमा व योजना स्थिति (Policy Status)';
           } else if (lower === 'system_alert') {
             cleanTitle = '🔔 सिस्टम सूचना (System Notice)';
           } else if (lower === 'weather_alert') {
@@ -124,7 +124,7 @@ export default function Alerts() {
             title: cleanTitle || 'कृषि व मौसम अलर्ट',
             threat_hi: isWelcome
               ? rawMsg.replace(/^(POLICY_STATUS|SYSTEM_ALERT|🎉 स्वागत \(Welcome\)):\s*/i, '')
-              : (n.threat_hi || rawMsg || 'खेत की स्थिति अद्यतित की गई है।').replace(/POLICY_STATUS/gi, 'योजना स्थिति'),
+              : (n.threat_hi || rawMsg || 'खेत की नई रिपोर्ट आ गई है।').replace(/POLICY_STATUS/gi, 'योजना स्थिति'),
             threat_en: isWelcome
               ? 'Your AgriShield farmer identity and credentials are verified.'
               : (n.threat_en || 'Field and meteorological telemetry monitored.').replace(/POLICY_STATUS/gi, 'Policy Status'),

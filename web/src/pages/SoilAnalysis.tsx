@@ -622,7 +622,7 @@ export default function SoilAnalysis() {
             <div className="bg-emerald-50/40 border border-emerald-100 rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  2. खेत का रकबा / Enter Farm Area
+                  2. खेत का नाप / Enter Farm Area
                 </label>
                 <span className="text-[11px] font-black text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
                   मैनुअल इनपुट (Any Acres)
@@ -637,7 +637,7 @@ export default function SoilAnalysis() {
                   max="10000"
                   value={farmAcresInput}
                   onChange={(e) => setFarmAcresInput(e.target.value)}
-                  placeholder="रकबा दर्ज करें (उदा. 2.4, 5.0, 10.5)"
+                  placeholder="खेत का नाप एकड़ में लिखें (उदा. 2.4, 5.0, 10.5)"
                   className="w-full bg-white border border-emerald-300 rounded-xl px-3.5 py-2.5 text-sm md:text-base font-black text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden transition-all pr-24 shadow-2xs"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-extrabold text-emerald-800 bg-emerald-100/80 px-2 py-1 rounded-lg pointer-events-none">
@@ -991,10 +991,10 @@ export default function SoilAnalysis() {
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                     <Sparkles size={15} className="text-emerald-600" /> 
-                    खाद की संस्तुति ({farmAcres} एकड़ हेतु कुल बोरियां)
+                    खाद की सही खुराक ({farmAcres} एकड़ के लिए कुल बोरियां)
                   </h4>
                   <span className="text-[11px] text-emerald-800 font-extrabold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    कुल रकबा: {farmAcres} एकड़
+                    कुल नाप: {farmAcres} एकड़
                   </span>
                 </div>
 

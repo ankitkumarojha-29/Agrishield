@@ -138,31 +138,34 @@ async def evaluate_farm_and_notify(
 
     # A) Cyclone & Extreme Storm Threat
     if wind_speed >= 45.0 or weather_code in (96, 99):
-        alert_title = "🌀 चक्रवात व भीषण आंधी चेतावनी (Cyclone & Storm Warning)"
+        alert_title = "🌀 आंधी-तूफान की चेतावनी (Storm Warning)"
         alert_message = (
-            f"आपके खेत '{farm.name}' ({crop}) क्षेत्र में {wind_speed} km/h की रफ्तार से चक्रवाती हवाएं और आंधी चलने की संभावना है। "
-            f"फसलें गिरने (lodging) से बचाने के लिए सिंचाई तुरंत रोकें, दवा छिड़काव स्थगित रखें और कटी हुई उपज को तिरपाल से सुरक्षित ढकें।"
+            f"खेत '{farm.name}' ({crop}): {wind_speed} km/h तेज हवा का अनुमान। "
+            f"• रोकें: सिंचाई और दवा छिड़काव तुरंत रोकें। "
+            f"• बचाव: कटी हुई फसल को तिरपाल से सुरक्षित ढकें।"
         )
     # B) Flood & Heavy Rain Inundation
     elif rain_48h >= 15.0 or weather_code in (65, 82, 95):
-        alert_title = "⚠️ बाढ़ व जलभराव चेतावनी (Flood & Inundation Alert)"
+        alert_title = "🌧️ भारी बारिश व जलभराव चेतावनी (Heavy Rain Alert)"
         alert_message = (
-            f"आगामी 48 घंटों में आपके खेत '{farm.name}' में {rain_48h}mm भारी बारिश का पूर्वानुमान है। "
-            f"सिंचाई मोटर तुरंत बंद रखें और मेड़ों से पानी निकासी की नालियां खुली रखें ताकि खेत में जलभराव से जड़ें न गलें।"
+            f"खेत '{farm.name}': 48 घंटों में {rain_48h}mm भारी बारिश का अनुमान। "
+            f"• मोटर तुरंत बंद रखें। "
+            f"• खेत से पानी निकासी की नाली साफ रखें ताकि जड़ें न गलें।"
         )
     # C) Satellite NDVI / Vegetation Index Drop (Crop Health Deterioration)
     elif not is_unsown and ndvi_val < 0.38:
-        alert_title = "🛰️ फसल स्वास्थ्य गिरावट चेतावनी (Satellite NDVI Drop Alert)"
+        alert_title = "🛰️ फसल में पीलापन व कमजोरी (Crop Health Alert)"
         alert_message = (
-            f"यूरोपीय उपग्रह (Sentinel-2) निगरानी अनुसार आपके खेत '{farm.name}' ({crop}) का वनस्पति सूचकांक (NDVI) गिरकर {ndvi_val} दर्ज हुआ है। "
-            f"फसल में पीलापन या पोषण की कमी का संकेत है। खेत का निरीक्षण करें और नैनो यूरिया (4ml/L) अथवा सूक्ष्म पोषक तत्वों (Zinc/Sulphur) का पर्णीय छिड़काव करें।"
+            f"सैटेलाइट निगरानी (खेत '{farm.name}'): फसल में पीलापन या कमजोरी के संकेत हैं। "
+            f"• सलाह: खेत का निरीक्षण करें। "
+            f"• खुराक: नैनो यूरिया अथवा जिंक/सल्फर का हल्का स्प्रे करें।"
         )
     # D) Extreme Heat Stress / Heat Wave
     elif temp >= 38.0:
-        alert_title = "🔥 भीषण गर्मी व लू चेतावनी (Heat Stress Alert)"
+        alert_title = "🔥 तेज गर्मी व लू की चेतावनी (Heat Wave Alert)"
         alert_message = (
-            f"आपके खेत '{farm.name}' पर तापमान {temp}°C दर्ज हुआ है। अत्यधिक ताप से फूल व फलियां झड़ने की आशंका है। "
-            f"फसल को जल-तनाव से बचाने के लिए आज शाम 5 बजे के बाद हल्की फव्वारा या ड्रिप सिंचाई अवश्य करें।"
+            f"खेत '{farm.name}': तापमान {temp}°C पहुंचा, फूल-फलियां झड़ने का डर है। "
+            f"• सलाह: फसल को बचाने के लिए आज शाम हल्की सिंचाई अवश्य करें।"
         )
     # E) Frost / Cold Freeze Hazard (Winter Rabi Crops)
     elif temp <= 4.0:

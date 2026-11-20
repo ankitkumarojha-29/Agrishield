@@ -63,10 +63,10 @@ export default function Profile() {
           setDeleteOtp(res.data.otp_code);
         }
       } else {
-        setDeleteError(res?.error?.message || 'OTP अनुरोध विफल रहा');
+        setDeleteError(res?.error?.message || 'OTP नहीं भेजा जा सका, दोबारा प्रयास करें');
       }
     } catch (err: any) {
-      setDeleteError(err.response?.data?.error?.message || err.message || 'OTP अनुरोध में समस्या आई');
+      setDeleteError(err.response?.data?.error?.message || err.message || 'OTP भेजने में समस्या आई');
     } finally {
       setDeleteLoading(false);
     }
@@ -74,7 +74,7 @@ export default function Profile() {
 
   const handleConfirmDelete = async () => {
     if (!deleteOtp || deleteOtp.trim().length !== 6) {
-      setDeleteError('कृपया 6 अंकों का सही OTP कोड दर्ज करें');
+      setDeleteError('कृपया 6 अंकों का सही OTP कोड डालें');
       return;
     }
     setDeleteLoading(true);
@@ -82,7 +82,7 @@ export default function Profile() {
     try {
       const res = await api.confirmAccountDeletion(deleteOtp.trim(), deleteReason.trim());
       if (res.success && res.data) {
-        setDeleteSuccessMsg(res.data.message || 'खाता 180-दिवसीय वैधानिक क्वारंटाइन में डाल दिया गया है।');
+        setDeleteSuccessMsg(res.data.message || 'खाता 180 दिनों की वैधानिक अवधि के लिए बंद कर दिया गया है।');
         setTimeout(() => {
           localStorage.removeItem('access_token');
           localStorage.removeItem('user_role');
@@ -92,10 +92,10 @@ export default function Profile() {
           window.location.href = '/login?deleted=true';
         }, 3500);
       } else {
-        setDeleteError(res?.error?.message || 'खाता विलोपन असफल रहा');
+        setDeleteError(res?.error?.message || 'खाता बंद नहीं हो सका');
       }
     } catch (err: any) {
-      setDeleteError(err.response?.data?.error?.message || err.message || 'खाता विलोपन में त्रुटि आई');
+      setDeleteError(err.response?.data?.error?.message || err.message || 'खाता बंद करने में समस्या आई');
     } finally {
       setDeleteLoading(false);
     }
@@ -383,14 +383,14 @@ export default function Profile() {
                 <strong className="text-slate-800 uppercase">{role}</strong>
               </div>
               <div className="flex items-center justify-between">
-                <span>पंजीकरण तिथि:</span>
+                <span>खाता शुरू होने की तारीख:</span>
                 <strong className="text-slate-800">
                   {userData?.created_at ? userData.created_at.split('T')[0] : 'सक्रिय (Active)'}
                 </strong>
               </div>
               {role === 'farmer' && (
                 <div className="flex items-center justify-between">
-                  <span>पंजीकृत खेत (Plots):</span>
+                  <span>मेरे कुल खेत (Plots):</span>
                   <strong className="text-emerald-700 font-bold">{farms.length} खेत</strong>
                 </div>
               )}
@@ -402,13 +402,13 @@ export default function Profile() {
             <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 text-xs space-y-2">
               <div className="flex items-center gap-2 text-emerald-900 font-bold">
                 <Sprout size={16} className="text-emerald-700" />
-                <span>कुल कृषि रकबा (Total Land):</span>
+                <span>खेत का कुल नाप (Total Land):</span>
               </div>
               <p className="text-2xl font-black text-emerald-950">
                 {totalAreaAcre.toFixed(2)} एकड़ <span className="text-xs font-normal text-emerald-800">({totalAreaHa.toFixed(2)} Ha)</span>
               </p>
               <p className="text-[11px] text-emerald-800/80">
-                सैटेलाइट और GPS द्वारा सत्यापित सीमाएं
+                सैटेलाइट और GPS द्वारा जांची गई सीमाएं
               </p>
             </div>
           )}
@@ -425,12 +425,12 @@ export default function Profile() {
 
             <div className="grid sm:grid-cols-2 gap-4 text-xs">
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 font-bold uppercase text-[10px] block">किसान / उपयोगकर्ता का नाम</span>
+                <span className="text-slate-400 font-bold uppercase text-[10px] block">किसान का नाम</span>
                 <p className="text-sm font-bold text-slate-900 mt-1">{displayName}</p>
               </div>
 
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-400 font-bold uppercase text-[10px] block">पंजीकृत मोबाइल नंबर</span>
+                <span className="text-slate-400 font-bold uppercase text-[10px] block">मोबाइल नंबर</span>
                 <p className="text-sm font-bold text-slate-900 mt-1">{displayPhone}</p>
               </div>
 
@@ -548,13 +548,13 @@ export default function Profile() {
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <MapPin size={16} className="text-emerald-600" />
-                  <span>मेरे पंजीकृत खेत ({farms.length})</span>
+                  <span>मेरे खेत ({farms.length})</span>
                 </h3>
               </div>
 
               {farms.length === 0 ? (
                 <p className="text-xs text-slate-400 py-4 text-center">
-                  अभी तक कोई खेत पंजीकृत नहीं है। 'नया खेत जोड़ें' पर जाकर अपना खेत दर्ज करें।
+                  अभी कोई खेत नहीं जुड़ा है। 'नया खेत जोड़ें' पर जाकर अपना खेत दर्ज करें।
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -563,7 +563,7 @@ export default function Profile() {
                       <div>
                         <span className="font-bold text-slate-900 text-sm block">{farm.name}</span>
                         <span className="text-slate-500 text-[11px]">
-                          फसल: <strong>{farm.crop || 'खुला खेत'}</strong> • रकबा: <strong>{farm.area_m2 ? (farm.area_m2 / 4046.86).toFixed(2) : '0.00'} एकड़</strong> ({farm.area_m2 ? (farm.area_m2 / 10000).toFixed(2) : '0.00'} Ha)
+                          फसल: <strong>{farm.crop || 'खुला खेत'}</strong> • नाप: <strong>{farm.area_m2 ? (farm.area_m2 / 4046.86).toFixed(2) : '0.00'} एकड़</strong> ({farm.area_m2 ? (farm.area_m2 / 10000).toFixed(2) : '0.00'} Ha)
                         </span>
                       </div>
                       <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -583,7 +583,7 @@ export default function Profile() {
                 <div className="flex items-center gap-2 text-rose-800">
                   <Trash2 size={18} className="text-rose-600 shrink-0" />
                   <h3 className="text-sm font-bold uppercase tracking-wider">
-                    खाता प्रबंधन एवं वैधानिक विलोपन (Account Deletion & Governance)
+                    खाता बंद करना (Account Deletion & DPDP Act 2023)
                   </h3>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 shrink-0 border border-rose-200">
@@ -593,11 +593,13 @@ export default function Profile() {
 
               <div className="text-xs text-slate-600 space-y-2 leading-relaxed">
                 <p>
-                  यदि आप AgriShield पर अपना खाता हटाना चाहते हैं, तो भारतीय डिजिटल व्यक्तिगत डेटा संरक्षण अधिनियम (DPDP Act, 2023 धारा 8(7)) एवं CERT-In साइबर सुरक्षा निर्देशों के अनुसार आपका लॉगिन तुरंत बंद कर दिया जाएगा एवं खाता <strong>180 दिनों के वैधानिक क्वारंटाइन</strong> में सुरक्षित रहेगा।
+                  यदि आप AgriShield पर अपना खाता बंद करना चाहते हैं, तो भारतीय डिजिटल व्यक्तिगत डेटा संरक्षण कानून (DPDP Act, 2023 धारा 8(7)) के अनुसार:
                 </p>
-                <p className="text-[11px] text-slate-500">
-                  180 दिनों की अवधि समाप्त होने पर आपका व्यक्तिगत पहचान डेटा (PII) स्थायी रूप से नष्ट कर दिया जाएगा, जबकि अनाम उपग्रह व फसल रिकॉर्ड एआई मॉडल प्रशिक्षण हेतु सुरक्षित रहेंगे।
-                </p>
+                <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 pl-1">
+                  <li>आपका लॉगिन तुरंत बंद कर दिया जाएगा।</li>
+                  <li><strong>180-दिवसीय वैधानिक अवधि:</strong> अगले 180 दिनों तक आपका खाता सुरक्षित रहेगा; आप चाहें तो इसे कभी भी फिर से चालू (Restore) करा सकते हैं।</li>
+                  <li>180 दिन पूरे होने पर आपकी व्यक्तिगत पहचान (फोन, नाम) हमेशा के लिए मिटा दी जाएगी।</li>
+                </ul>
               </div>
 
               <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -615,7 +617,7 @@ export default function Profile() {
                   className="px-4 py-2 bg-white hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-300 hover:border-rose-600 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Trash2 size={14} />
-                  <span>खाता विलोपन का अनुरोध करें (Delete Account)</span>
+                  <span>खाता बंद करने की अर्जी दें (Delete Account)</span>
                 </button>
               </div>
             </div>
@@ -634,7 +636,7 @@ export default function Profile() {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900">
-                    खाता विलोपन एवं 180-दिवसीय क्वारंटाइन
+                    खाता बंद करना (180-दिवसीय वैधानिक अवधि)
                   </h3>
                   <p className="text-[11px] text-slate-500">
                     Statutory Account Deletion under DPDP Act 2023 Sec 8(7)
@@ -655,27 +657,27 @@ export default function Profile() {
             {deleteSuccessMsg ? (
               <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-2">
                 <CheckCircle2 size={32} className="text-emerald-600 mx-auto" />
-                <h4 className="text-sm font-bold text-emerald-900">खाता सफलतापूर्वक निष्क्रिय हुआ</h4>
+                <h4 className="text-sm font-bold text-emerald-900">खाता 180 दिनों की वैधानिक अवधि के लिए बंद हुआ</h4>
                 <p className="text-xs text-emerald-800 leading-relaxed">{deleteSuccessMsg}</p>
-                <p className="text-[11px] text-emerald-600 pt-2 font-medium">आपको लॉगिन स्क्रीन पर पुनः निर्देशित किया जा रहा है...</p>
+                <p className="text-[11px] text-emerald-600 pt-2 font-medium">आपको लॉगिन पेज पर भेजा जा रहा है...</p>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-900 space-y-1.5 leading-relaxed">
                   <p className="font-bold flex items-center gap-1.5 text-amber-950">
                     <Info size={14} className="text-amber-700 shrink-0" />
-                    <span>वैधानिक सुरक्षा सूचना (Legal Statutory Notice):</span>
+                    <span>वैधानिक सुरक्षा सूचना (DPDP Act 2023 Notice):</span>
                   </p>
                   <ul className="list-disc list-inside space-y-1 text-[11px] text-amber-800">
-                    <li>आपका लॉगिन और ऐप एक्सेस तुरंत बंद कर दिया जाएगा।</li>
-                    <li>वित्तीय व भूमि रिकॉर्ड्स को 180 दिनों तक वैधानिक ऑडिट क्वारंटाइन में सुरक्षित रखा जाएगा।</li>
-                    <li>180 दिनों के पश्चात व्यक्तिगत डेटा (फोन, नाम) स्थायी रूप से मिटा दिया जाएगा।</li>
+                    <li>आपका लॉगिन और ऐप इस्तेमाल तुरंत बंद हो जाएगा।</li>
+                    <li>सरकारी नियमानुसार 180 दिनों की वैधानिक अवधि में खाता सुरक्षित रहेगा ताकि आप चाहें तो इसे पुनः चालू (Restore) करा सकें।</li>
+                    <li>180 दिनों के पश्चात व्यक्तिगत पहचान डेटा हमेशा के लिए मिटा दिया जाएगा।</li>
                   </ul>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    विलोपन का कारण (Reason for Deletion - Optional):
+                    खाता बंद करने का कारण (वैकल्पिक / Optional):
                   </label>
                   <textarea
                     rows={2}
@@ -701,7 +703,7 @@ export default function Profile() {
                       className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       <Key size={14} />
-                      <span>{deleteLoading ? 'सत्यापन कोड भेज रहे हैं...' : 'सुरक्षा कोड (OTP) भेजें और आगे बढ़ें'}</span>
+                      <span>{deleteLoading ? 'OTP भेज रहे हैं...' : 'OTP कोड भेजें और आगे बढ़ें'}</span>
                     </button>
                   </div>
                 ) : (
@@ -709,7 +711,7 @@ export default function Profile() {
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-xs font-bold text-slate-800">
-                          6 अंकों का सुरक्षा OTP दर्ज करें:
+                          मोबाइल पर आया 6 अंकों का OTP दर्ज करें:
                         </label>
                         {deleteDevOtp && (
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -743,7 +745,7 @@ export default function Profile() {
                         className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                       >
                         <Trash2 size={14} />
-                        <span>{deleteLoading ? 'सत्यापित कर रहे हैं...' : 'पुष्टि करें और खाता हटाएं'}</span>
+                        <span>{deleteLoading ? 'पुष्टि कर रहे हैं...' : 'पुष्टि करें और खाता बंद करें'}</span>
                       </button>
                     </div>
                   </div>

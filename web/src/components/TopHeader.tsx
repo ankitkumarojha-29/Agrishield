@@ -313,7 +313,7 @@ export default function TopHeader({ onToggleMobileMenu }: TopHeaderProps) {
                     <CheckCircle2 size={26} className="text-emerald-500 mx-auto mb-2" />
                     <p className="font-extrabold text-slate-800 text-sm">कोई नया अलर्ट नहीं (Tray Clear)</p>
                     <p className="text-[11px] text-slate-400 mt-1">
-                      {role === 'admin' ? 'सभी व्यवस्थापक और सिस्टम अलर्ट अद्यतित हैं।' : 'सभी पंजीकृत खेत सुरक्षित हैं।'}
+                      {role === 'admin' ? 'सभी सिस्टम अलर्ट अपडेट हैं।' : 'सभी खेत सुरक्षित हैं।'}
                     </p>
                   </div>
                 )}

@@ -26,35 +26,41 @@ async def detect_crop_health(
             "confidence":    0.91,
             "boxes":         [],
             "model_version": "mock-crop-v1",
+            "is_fallback":   True,
+            "ai_engine":     "offline_fallback",
             "low_confidence":False,
             "inference_ms":  45,
+            "crop":          crop,
+            "growth_stage":  growth_stage,
         }
 
     # ── Live inference ─────────────────────────────────────────────────────
     try:
         from inference.cv_pipeline import predict_crop_health
-    except (FileNotFoundError, ModuleNotFoundError, ImportError):
+        image_bytes = await image.read()
+        if not image_bytes:
+            raise HTTPException(status_code=422, detail="Uploaded image file is empty.")
+
+        result = predict_crop_health(image_bytes)
+        result["crop"] = crop
+        result["growth_stage"] = growth_stage
+        result["is_fallback"] = False
+        result["ai_engine"] = "live_torch_model"
+        return result
+    except (FileNotFoundError, ModuleNotFoundError, ImportError) as err:
         return {
             "label": "healthy",
             "severity": "none",
-            "confidence": 0.93,
+            "confidence": 0.85,
             "boxes": [],
-            "model_version": "cv-efficientnet-b0-v1",
-            "low_confidence": False,
-            "inference_ms": 42,
+            "model_version": "mock-crop-v1",
+            "is_fallback": True,
+            "ai_engine": "offline_fallback",
+            "low_confidence": True,
+            "inference_ms": 10,
             "crop": crop,
             "growth_stage": growth_stage,
+            "warning": f"Model inference engine fallback: {err}"
         }
-
-    image_bytes = await image.read()
-    if not image_bytes:
-        raise HTTPException(status_code=422, detail="Uploaded image file is empty.")
-
-    try:
-        result = predict_crop_health(image_bytes)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Invalid or corrupted image format: {exc}")
-    # Attach request context for traceability
-    result["crop"]         = crop
-    result["growth_stage"] = growth_stage
-    return result

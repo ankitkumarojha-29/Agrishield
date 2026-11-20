@@ -45,13 +45,13 @@ def recommend_irrigation(
         status = "hold"
         badge_hi = "✅ नमी पर्याप्त - पानी न दें"
         title_hi = "पानी देने की जरूरत नहीं है (अगले 48 घंटे सुरक्षित)"
-        reason_hi = f"जमीन में पर्याप्त नमी ({soil_moisture}%) मौजूद है। वाष्पीकरण दर {et0} mm/दिन सामान्य है।"
+        reason_hi = f"जमीन में पर्याप्त नमी ({soil_moisture}%) मौजूद है। पानी सूखने की रफ्तार सामान्य है, अभी पानी न दें।"
         urgency = "low"
     elif soil_moisture <= min_thresh:
         status = "water"
         badge_hi = "💧 आज शाम सिंचाई आवश्यक"
         title_hi = f"आज शाम खेत में {run_hours} घंटे का पानी दें"
-        reason_hi = f"जमीन में नमी घटकर {soil_moisture}% रह गई है (न्यूनतम सीमा {min_thresh}%)। जल तनाव से बचाव के लिए शाम को सिंचाई करें।"
+        reason_hi = f"जमीन में नमी घटकर {soil_moisture}% रह गई है (न्यूनतम सीमा {min_thresh}%)। फसल को सूखने से बचाने के लिए शाम को पानी दें।"
         urgency = "high" if soil_moisture < (min_thresh - 5) else "medium"
     else:
         status = "review"
