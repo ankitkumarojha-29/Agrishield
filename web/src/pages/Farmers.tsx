@@ -161,15 +161,15 @@ export default function Farmers() {
         loadArchivedFarmers();
         loadFarmers();
       } else {
-        alert(res?.error?.message || 'खाता बहाल करने में त्रुटि आई');
+        alert(res?.error?.message || 'खाता चालू करने में समस्या आई');
       }
     } catch (err: any) {
-      alert(err.response?.data?.error?.message || err.message || 'खाता बहाली में त्रुटि हुई');
+      alert(err.response?.data?.error?.message || err.message || 'खाता चालू करने में समस्या आई');
     }
   };
 
   const handleAdminRejectRestore = async (farmer: Farmer) => {
-    const reason = window.prompt(`किसान '${farmer.name || farmer.phone}' का खाता चालू करने का अनुरोध अस्वीकार करने का कारण लिखें:`, 'सत्यापन उपरांत प्रशासनिक निर्णय');
+    const reason = window.prompt(`किसान '${farmer.name || farmer.phone}' का खाता चालू करने का अनुरोध अस्वीकार करने का कारण लिखें:`, 'जांच उपरांत प्रशासनिक निर्णय');
     if (reason === null) return;
     try {
       const res = await api.adminRejectFarmerRestore(farmer.id, reason.trim() || undefined);
@@ -1333,7 +1333,7 @@ export default function Farmers() {
                           <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs space-y-1">
                             <h4 className="font-bold text-emerald-950 flex items-center gap-1.5 text-xs">
                               <Sparkles size={14} className="text-emerald-700 shrink-0" />
-                              <span>अनुशंसित उपचार (Curative Agronomic Prescription):</span>
+                              <span>रोग का इलाज व सही दवा (Treatment & Medicine):</span>
                             </h4>
                             <p className="text-emerald-900 leading-relaxed text-[11px] pl-5">
                               {scan.treatment || scan.recommendations[0]}

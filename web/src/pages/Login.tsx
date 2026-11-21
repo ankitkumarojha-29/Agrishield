@@ -552,10 +552,10 @@ export default function Login() {
               </div>
               <div className="space-y-1">
                 <p className="font-bold text-amber-950 text-xs sm:text-sm">
-                  क्या आप अपना खाता पुनः चालू (Restore) करना चाहते हैं?
+                  क्या आप अपना खाता दोबारा चालू (Restore) करना चाहते हैं?
                 </p>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
-                  डीपीडीपी अधिनियम, 2023 (DPDP Act 2023) के तहत आपका खाता 180 दिनों की वैधानिक अवधि में सुरक्षित है। आप OTP सत्यापन द्वारा एडमिन को खाता दोबारा चालू करने की अर्जी भेज सकते हैं।
+                  डीपीडीपी अधिनियम, 2023 (DPDP Act 2023) के तहत आपका खाता 180 दिनों की वैधानिक अवधि में सुरक्षित है। आप OTP जांच (Verification) द्वारा एडमिन को खाता दोबारा चालू करने की अर्जी भेज सकते हैं।
                 </p>
               </div>
             </div>
@@ -566,7 +566,7 @@ export default function Login() {
                 className="px-3.5 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
               >
                 <RotateCcw size={13} />
-                <span>खाता पुनः चालू करने की अर्जी भेजें (Request Restore)</span>
+                <span>खाता दोबारा चालू करने की अर्जी भेजें (Request Restore)</span>
               </button>
               <button
                 type="button"
@@ -1064,8 +1064,8 @@ export default function Login() {
                 <span>डिजिटल व्यक्तिगत डेटा संरक्षण अधिनियम (DPDP Act 2023) वैधानिक अधिकार</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-relaxed">
-                180 दिनों की वैधानिक अवधि के दौरान खाता धारक को सहमति पुनः प्रदान (Re-consent) करने का कानूनी अधिकार है। 
-                OTP सत्यापन के बाद एडमिन द्वारा मंजूरी दिए जाने पर आपका खाता समस्त ज़मीन व रिकॉर्ड्स सहित फिर चालू हो जाएगा।
+                180 दिनों की वैधानिक अवधि के दौरान खाता धारक को सहमति दोबारा देने (Re-consent) का कानूनी अधिकार है। 
+                OTP जांच (Verification) के बाद एडमिन द्वारा मंजूरी दिए जाने पर आपका खाता समस्त ज़मीन व रिकॉर्ड्स सहित फिर चालू हो जाएगा।
               </p>
               {restoreDaysLeft !== null && (
                 <div className="pt-1 flex items-center gap-1 text-[11px] font-bold text-amber-900">

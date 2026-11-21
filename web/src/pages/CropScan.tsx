@@ -91,7 +91,7 @@ export default function CropScan() {
       severity: (scan.severity || 'moderate').toLowerCase() as any,
       confidence: scan.confidence || 0.9,
       model_version: scan.model_version || 'cv-efficientnet-b0-v1',
-      treatment: scan.treatment || (scan.recommendations && scan.recommendations[0]) || 'अनुशंसित कवकनाशी या कीटनाशक का छिड़काव करें।',
+      treatment: scan.treatment || (scan.recommendations && scan.recommendations[0]) || 'कीड़े व रोग की सही दवा का छिड़काव करें।',
       prevention: scan.prevention || (scan.recommendations && scan.recommendations[1]) || 'खेत में स्वच्छता बनाए रखें और रोगी पत्तियों को अलग करें।',
       low_confidence: false,
       is_fallback: scan.is_fallback,
@@ -439,12 +439,12 @@ export default function CropScan() {
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">AI Diagnostic Engine</span>
                   <div className="mt-1 flex items-center gap-1.5">
                     {result.reanalysis_completed ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold border border-blue-200" title="AI टनल चालू होने पर वास्तविक मॉडल द्वारा पुनः विश्लेषित">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold border border-blue-200" title="AI टनल चालू होने पर वास्तविक मॉडल द्वारा दोबारा विश्लेषित">
                         <Sparkles size={12} className="text-blue-600" />
                         सटीक AI द्वारा अपडेट (Live AI)
                       </span>
                     ) : result.is_fallback || result.model_version?.toLowerCase().includes('mock') ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold" title="AI टनल चालू होने पर यह स्वतः सटीक AI मॉडल से पुनः विश्लेषित होगा">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold" title="AI टनल चालू होने पर यह स्वतः सटीक AI मॉडल से दोबारा विश्लेषित होगा">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                         प्रारंभिक विश्लेषण (ऑफलाइन कतार)
                       </span>

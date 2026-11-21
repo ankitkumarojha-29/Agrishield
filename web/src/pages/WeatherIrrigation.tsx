@@ -342,7 +342,7 @@ export default function WeatherIrrigation() {
               <span>अगले 5 दिनों का मौसम और पानी का प्लान (5-Day Dynamic Outlook)</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              प्रतिदिन के वाष्पीकरण (ET0) और वर्षा पूर्वानुमान के आधार पर दैनिक सिंचाई निर्णय
+              जमीन की नमी और बारिश के अनुमान के आधार पर पानी लगाने की सही सलाह
             </p>
           </div>
           <div className="flex items-center gap-3 text-[11px] font-bold text-slate-600">
@@ -403,7 +403,7 @@ export default function WeatherIrrigation() {
             <Sparkles size={18} className="text-emerald-600" />
             <div>
               <span className="text-xs md:text-sm font-bold text-slate-900 block">
-                🔍 विस्तृत सैटेलाइट और वैज्ञानिक रिपोर्ट (Technical &amp; Satellite Details)
+                🔍 पूरी सैटेलाइट और मौसम रिपोर्ट (Full Weather &amp; Satellite Details)
               </span>
               <span className="text-[11px] text-slate-400">
                 सेंटिनल-2 कैनोपी मॉइस्चर (NDMI), Penman-Monteith वाष्पीकरण, और मौसम केंद्र डेटा

@@ -162,7 +162,7 @@ export default function Alerts() {
       }
     } catch (e) {
       console.error('Scan error:', e);
-      setScanMessage('जांच में त्रुटि हुई। कृपया पुनः प्रयास करें।');
+      setScanMessage('जांच पूरी नहीं हो पाई। कृपया दोबारा कोशिश करें।');
     } finally {
       setScanning(false);
     }
@@ -380,7 +380,7 @@ export default function Alerts() {
             </p>
             <p className="text-slate-600 mt-0.5">
               {role === 'admin'
-                ? 'नए किसान पंजीकरण, 7-दिवसीय व्यवस्थापक अनुमोदन अनुरोध और क्षेत्रीय मौसम अलर्ट यहां स्वतः संकलित होते हैं।'
+                ? 'नए किसान रजिस्ट्रेशन (Onboarding), व्यवस्थापक अनुमोदन अनुरोध और क्षेत्रीय मौसम अलर्ट यहां स्वतः संकलित होते हैं।'
                 : 'आपके पंजीकृत खेतों की Sentinel-2 उपग्रह, मौसम रडार और मिट्टी नमी सेंसर द्वारा स्वतः निगरानी की जा रही है। किसी भी आपदा (बाढ़, चक्रवात, NDVI गिरावट) या सिंचाई आवश्यकता पर अलर्ट स्वतः भेजा जाता है।'}
             </p>
           </div>
@@ -444,7 +444,7 @@ export default function Alerts() {
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
             >
               <RefreshCw size={14} className={scanning ? 'animate-spin' : ''} />
-              <span>खेतों की पुनः जांच करें (Scan My Farms Now)</span>
+              <span>खेतों की दोबारा जांच करें (Scan My Farms Now)</span>
             </button>
           )}
         </div>
@@ -538,7 +538,7 @@ export default function Alerts() {
                 <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200 text-xs space-y-1">
                   <div className="flex items-center gap-1.5 text-emerald-900 font-extrabold uppercase tracking-wider text-[11px]">
                     <CheckCircle2 size={14} className="text-emerald-700 shrink-0" />
-                    <span>अनुशंसित कदम (Action To Take):</span>
+                    <span>क्या करें (जरूरी कदम / Action):</span>
                   </div>
                   <p className="text-emerald-950 font-bold leading-relaxed">
                     {alert.action_hi}

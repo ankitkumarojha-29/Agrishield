@@ -170,7 +170,7 @@ export default function FarmDetail() {
         setEditErrorMsg(res.error?.message || 'Failed to update farm.');
       }
     } catch (err: any) {
-      setEditErrorMsg(err.response?.data?.error?.message || err.message || 'खेत सुधारने में त्रुटि आई।');
+      setEditErrorMsg(err.response?.data?.error?.message || err.message || 'खेत की जानकारी अपडेट करने में समस्या आई।');
     } finally {
       setSavingEdit(false);
     }
@@ -226,7 +226,7 @@ export default function FarmDetail() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2 md:gap-3">
-              <span>रकबा: <strong className="text-slate-700">{areaHa} ha ({areaAcres} एकड़)</strong></span>
+              <span>खेत का नाप (रकबा): <strong className="text-slate-700">{areaHa} ha ({areaAcres} एकड़)</strong></span>
               <span>&bull;</span>
               <span>खसरा #: <strong className="text-slate-700">{farm.khasra_number || 'N/A'}</strong></span>
               <span>&bull;</span>

@@ -108,7 +108,7 @@ export default function FarmsMap() {
         <div className="animate-spin rounded-full h-9 w-9 border-3 border-emerald-600 border-t-transparent"></div>
         <p className="text-xs font-semibold">
           {role === 'admin' 
-            ? 'क्षेत्रीय भू-अभिलेख डेटा लोड हो रहा है (Loading regional farm telemetry)...'
+            ? 'क्षेत्रीय खेतों का नक्शा लोड हो रहा है (Loading Farm Map)...'
             : 'खेतों का डेटा लोड हो रहा है (Loading your farms)...'}
         </p>
       </div>
@@ -144,7 +144,7 @@ export default function FarmsMap() {
                 <span className="text-xs text-slate-400 font-medium">PostGIS &bull; Sentinel-2</span>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">
-                क्षेत्रीय कृषि भू-अभिलेख एवं उपग्रह निगरानी (Regional Farm Parcels &amp; Satellite Surveillance)
+                खेतों का नक्शा और सैटेलाइट निगरानी (Farm Map &amp; Satellite Tracking)
               </h1>
               <p className="text-xs md:text-sm text-slate-500 mt-1">
                 Administrative surveillance of registered farmer land boundaries, acreage, and Sentinel-2 spectral indices across districts.
@@ -436,7 +436,7 @@ export default function FarmsMap() {
 
                         <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
                           <MapPin size={13} className="text-slate-400 shrink-0" />
-                          <span>रकबा: <strong className="text-slate-800">{areaAcres} एकड़</strong> ({areaBigha} बीघा &bull; {areaHa} ha)</span>
+                          <span>खेत का नाप (रकबा): <strong className="text-slate-800">{areaAcres} एकड़</strong> ({areaBigha} बीघा &bull; {areaHa} ha)</span>
                         </p>
                       </div>
 
